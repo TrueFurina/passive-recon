@@ -1,0 +1,55 @@
+sequenceDiagram
+    participant C as Client
+    participant D as require_auth (Depends)
+    participant S as security.verify_token
+    participant H as Endpoint Handler
+
+    Note over C,H: ① 合法 token → 2xx
+    C->>D: GET /api/v1/compliance/status  Authorization: Bearer <valid>
+    D->>S: verify_token(header)
+    S-->>D: True (hmac.compare_digest)
+    D->>H: proceed
+    H-->>C: 200 ok({...})
+
+    Note over C,H: ② 无/非法 token → 401
+    C->>D: GET /api/v1/approval/queue  (无 Authorization / Bearer wrong)
+    D->>S: verify_token(header)
+    S-->>D: False
+    D-->>C: 401 {"ok":false,"error":"unauthorized","code":"040001"}
+
+    Note over C,H: ③ loopback 豁免（127.0.0.1 / testclient）
+    C->>D: GET /api/v1/metrics/snapshot  (client.host=testclient, 无 token)
+    D->>D: _is_loopback() == True
+    D->>H: proceed (免 token)
+    H-->>C: 200 ok({...})
+
+    Note over C,H: ④ 豁免白名单（health/docs/openapi/root/static）
+    C->>D: GET /api/v1/health
+    D->>D: _is_exempt() == True
+    D->>H: proceed (免 token)
+    H-->>C: 200 ok({"status":"up"})
+---
+sequenceDiagram
+    participant O as Orchestrator.run_company
+    participant P as ApiProxy.submit
+    participant L as RateLimiter
+    participant G as 网关/出站
+
+    Note over O,G: ④ 频控满 → acquire 排队 → release 消费 → 编排重试
+    O->>P: submit(shard)
+    P->>L: acquire(src_ip)
+    alt 未满（used < floor(cap*0.95)）
+        L-->>P: True（占槽）
+        P->>G: 经 R1 校验后出站
+        P->>L: release(src_ip)  ← 请求完成后释放
+        L-->>P: used-1
+        P-->>O: SubmitProxyVO(accepted=True)
+    else 已满（排队不丢弃）
+        L-->>P: False（queued+1）
+        P-->>O: SubmitProxyVO(accepted=False)
+        loop 指数退避重试（默认3次）
+            O->>O: wait = base * 2^attempt; time.sleep(wait)
+            O->>P: 重新 submit(shard)  ← 不丢任务
+        end
+        Note over O: 重试耗尽仍排队 → 记入 queued_unsubmitted（保留，不丢弃）
+    end

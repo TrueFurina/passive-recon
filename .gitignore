@@ -1,0 +1,50 @@
+# ===== 密钥与本地配置（禁止入库）=====
+config.json
+config.json.bak*
+.env
+
+# ===== 竞赛归档（FAFU 软件杯：含真实采集数据/PII/API密钥，禁止入库）=====
+# 注：原始归档路径曾误写为 archive/competition-artifacts/FAFU/，实际位于 deliverables/FAFU/
+deliverables/FAFU/
+
+# ===== 运行期数据 =====
+data/
+
+# ===== Python 缓存 / 构建产物 =====
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+*.egg-info/
+.qa_venv/
+.venv/
+venv/
+
+# ===== 工具生成物（非人工维护）=====
+.workbuddy/output/
+
+# ===== 助手内部目录（禁止入库）=====
+.workbuddy/
+
+# ===== 调试 / 工具生成物（禁止入库）=====
+*.log
+pytest*.log
+*.db
+meas.db
+diag*
+bothrun*
+batch_test.txt
+cov_*
+qa_*
+newrun.log
+runv.log
+inv.log
+iso_bg.log
+comp.log
+overview.md
+cov_summary.py
+per/
+
+# ===== 根目录测试产物（禁止入库）=====
+report_test.xlsx

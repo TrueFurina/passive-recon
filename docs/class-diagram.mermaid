@@ -1,0 +1,73 @@
+classDiagram
+    class Settings {
+        +bool API_AUTH_ENABLED = True
+        +List~str~ API_TOKENS = []
+        +str API_KEY = ""
+        +int RATE_CAPACITY = 1000
+        +float FREQ_BUFFER = 0.95
+        +int FAULT_MAX_RETRIES = 3
+        +model_validator _merge_api_key()
+    }
+
+    class AuthError {
+        +str code = "040001"
+    }
+
+    class security {
+        +get_valid_tokens() List~str~
+        +verify_token(raw: str|None) bool
+        +client_from_token(raw: str|None) str
+    }
+
+    class deps {
+        +AUTH_EXEMPT_PATHS: frozenset
+        +require_auth(request: Request) None
+        +_is_exempt(request: Request) bool
+        +_is_loopback(request: Request) bool
+    }
+
+    class RateLimiter {
+        +int capacity
+        +float window
+        +float buffer
+        +acquire(ip: str) bool
+        +release(ip: str) None
+        +usage(ip: str) Quota
+        -_limit() int
+    }
+
+    class Quota {
+        +str ip
+        +int used
+        +int limit
+        +float usage_pct
+        +int queued
+    }
+
+    class ApiProxy {
+        +RateLimiter limiter
+        +submit(req: SubmitProxyRequest) SubmitProxyVO
+        +release(src_ip: str) None
+        +quota(ip: str) Quota
+    }
+
+    class Orchestrator {
+        +run_company(enterprise: str, max_depth: int) dict
+        -_submit_with_retry(proxy, shard, max_retries) SubmitProxyVO
+    }
+
+    class mainApp {
+        +app: FastAPI
+        +include_routers()
+        +add_exception_handler(AuthError)
+    }
+
+    Settings ..> security : tokens 来源
+    deps ..> security : verify_token()
+    deps ..> Settings : API_AUTH_ENABLED / 豁免判定
+    mainApp ..> deps : Depends(require_auth)
+    mainApp ..> AuthError : 401 handler
+    ApiProxy --> RateLimiter : uses
+    ApiProxy ..> Quota : 返回
+    Orchestrator --> ApiProxy : submit/release
+    RateLimiter ..> Quota : 构造

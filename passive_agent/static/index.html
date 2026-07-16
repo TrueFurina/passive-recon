@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>企业被动信息搜集 Agent · 最小面板</title>
+  <style>
+    :root { --bg:#0f1419; --card:#1a212b; --line:#2a3340; --ok:#2ecc71; --warn:#f1c40f; --bad:#e74c3c; --txt:#e6edf3; --sub:#8b98a8; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif; background:var(--bg); color:var(--txt); }
+    header { padding:14px 20px; border-bottom:1px solid var(--line); display:flex; align-items:center; justify-content:space-between; }
+    header h1 { font-size:16px; margin:0; font-weight:600; }
+    .wrap { padding:18px 20px; max-width:1200px; margin:0 auto; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:14px; }
+    .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px 16px; }
+    .card h3 { margin:0 0 8px; font-size:13px; color:var(--sub); font-weight:500; letter-spacing:.3px; }
+    .big { font-size:26px; font-weight:700; }
+    .pill { display:inline-block; padding:2px 10px; border-radius:999px; font-size:12px; font-weight:600; }
+    .pill.ok { background:rgba(46,204,113,.15); color:var(--ok); }
+    .pill.warn { background:rgba(241,196,15,.15); color:var(--warn); }
+    .pill.bad { background:rgba(231,76,60,.15); color:var(--bad); }
+    .bar { height:8px; border-radius:6px; background:var(--line); overflow:hidden; margin-top:8px; }
+    .bar > i { display:block; height:100%; background:var(--ok); }
+    .bar > i.warn { background:var(--warn); }
+    .bar > i.bad { background:var(--bad); }
+    table { width:100%; border-collapse:collapse; margin-top:6px; font-size:13px; }
+    th,td { text-align:left; padding:7px 8px; border-bottom:1px solid var(--line); }
+    th { color:var(--sub); font-weight:500; }
+    .row { display:flex; gap:10px; align-items:center; margin:10px 0; flex-wrap:wrap; }
+    input,button { font-size:13px; font-family:inherit; }
+    input { background:#0c1117; border:1px solid var(--line); color:var(--txt); padding:7px 10px; border-radius:7px; min-width:220px; }
+    button { background:#2563eb; color:#fff; border:0; padding:8px 14px; border-radius:7px; cursor:pointer; font-weight:600; }
+    button.sec { background:#334155; }
+    button:hover { opacity:.9; }
+    #log { font-size:12px; color:var(--sub); white-space:pre-wrap; max-height:160px; overflow:auto; margin-top:8px; }
+    .sec-title { margin:22px 0 10px; font-size:14px; font-weight:600; border-left:3px solid #2563eb; padding-left:8px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>企业被动信息搜集 Agent · 最小面板</h1>
+    <span id="health" class="pill ok">● 就绪</span>
+  </header>
+
+  <div class="wrap">
+    <!-- M1 合规态势 / R6 频控 -->
+    <div class="grid">
+      <div class="card">
+        <h3>M1 合规态势（R1 fail-closed）</h3>
+        <div>违规拦截：<span id="violations" class="big">0</span></div>
+        <div style="margin-top:6px;">封禁：<span id="bans" class="big">0</span></div>
+        <div style="margin-top:8px;"><span class="pill ok">主动动作 100% 拦截</span></div>
+      </div>
+      <div class="card">
+        <h3>M2 频控绿区（R6 ≤95%）</h3>
+        <div>使用率：<span id="usage" class="big">0%</span></div>
+        <div class="bar"><i id="usageBar" style="width:0%"></i></div>
+        <div style="margin-top:6px;">已用/上限：<span id="used">0/0</span> · 排队：<span id="queued">0</span></div>
+      </div>
+      <div class="card">
+        <h3>M7 自研占比（R5）</h3>
+        <div>自研：<span id="selfdev" class="big">—</span></div>
+        <div style="margin-top:6px;">开源：<span id="oss">—</span></div>
+        <div style="margin-top:8px;"><span class="pill ok">保命模块 100% 自研</span></div>
+      </div>
+    </div>
+
+    <!-- 单企业闭环 -->
+    <div class="sec-title">单企业采集闭环（R1→R3→采集→R2→R6→R4）</div>
+    <div class="row">
+      <input id="ent" placeholder="输入企业全称，如：示例科技有限公司" />
+      <button onclick="runCompany()">运行闭环</button>
+      <button class="sec" onclick="refresh()">刷新态势</button>
+    </div>
+    <div id="loopOut" class="card" style="display:none;"></div>
+
+    <!-- M3 审批队列（高价值置顶） -->
+    <div class="sec-title">M3 审批队列（高价值置顶）</div>
+    <div class="card">
+      <table id="queueTbl">
+        <thead><tr><th>任务ID</th><th>风险</th><th>状态</th><th>主体</th><th>操作</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <!-- 运行日志 -->
+    <div class="sec-title">操作日志</div>
+    <div id="log"></div>
+
+    <!-- M2 深化：WNSR 进度条 + A/B/C 环形占比 -->
+    <div class="sec-title">M2 深化：WNSR 达成率 + A/B/C 算力占比</div>
+    <div class="grid">
+      <div class="card">
+        <h3>WNSR 达成率（模拟分估算）</h3>
+        <div class="big" id="wnsr">—</div>
+        <div class="bar"><i id="wnsrBar" style="width:0%"></i></div>
+      </div>
+      <div class="card">
+        <h3>A/B/C 算力占比</h3>
+        <div>A 类（高价值）：<span id="ratioA" class="big">60%</span></div>
+        <div style="margin-top:4px;">B 类（主站/公众号）：<span id="ratioB" class="big">30%</span></div>
+        <div style="margin-top:4px;">C 类（长尾旁站）：<span id="ratioC" class="big">10%</span></div>
+      </div>
+    </div>
+
+    <!-- M5 容错降级日志流 -->
+    <div class="sec-title">M5 容错降级日志（R8 多源容错）</div>
+    <div class="card">
+      <table id="faultTbl">
+        <thead><tr><th>时间</th><th>源</th><th>动作</th><th>判定</th><th>原因码</th><th>详情</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <!-- M6 看榜与算力倾斜 -->
+    <div class="sec-title">M6 看榜与算力倾斜（R9 加权调度）</div>
+    <div class="grid">
+      <div class="card">
+        <h3>6 项支撑指标</h3>
+        <div>资产覆盖率：<span id="mCoverage">—</span></div>
+        <div style="margin-top:4px;">情报准确率：<span id="mAccuracy">—</span></div>
+        <div style="margin-top:4px;">无效情报率：<span id="mInvalid">—</span></div>
+        <div style="margin-top:4px;">算力调度效率：<span id="mSched">—</span></div>
+        <div style="margin-top:4px;">合规安全率：<span id="mCompliance">—</span></div>
+        <div style="margin-top:4px;">API 调用效率：<span id="mApi">—</span></div>
+      </div>
+      <div class="card">
+        <h3>红线状态</h3>
+        <div>违规计数：<span id="rViolations" class="big">0</span></div>
+        <div style="margin-top:4px;">封禁计数：<span id="rBans" class="big">0</span></div>
+        <div style="margin-top:4px;">频控 buffer：<span id="rFreq" class="big">0%</span></div>
+        <div style="margin-top:8px;"><span id="redlinePill" class="pill ok">绿区</span></div>
+      </div>
+    </div>
+    <div class="card" style="margin-top:10px;">
+      <h3>回收事件</h3>
+      <table id="reclaimTbl">
+        <thead><tr><th>任务</th><th>企业</th><th>空闲(分钟)</th><th>快照已存</th><th>回收时间</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

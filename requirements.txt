@@ -1,0 +1,27 @@
+# ===== 后端 Web 框架（R4 面板 API + R6 代理网关 API + 最小面板） =====
+fastapi>=0.110,<1.0
+uvicorn[standard]>=0.29
+
+# ===== 配置 / 数据校验 =====
+pydantic>=2.6
+pydantic-settings>=2.2
+
+# ===== DNS 仅解析不访问（严禁 socket 主动连接） =====
+dnspython>=2.6
+
+# ===== 被动数据源出站调用（赛事API/工商API，出站前必经 R1 校验） =====
+httpx>=0.27
+
+# ===== 测试 =====
+pytest>=8.0
+
+# ===== 可选：跨 worker 全局频控（频控全局化加固项）=====
+# 仅当部署为多 worker（uvicorn --workers N）且需全局 ≤95% 硬闸时启用。
+# 安装后用 PASSIVE_RATE_REDIS_URL 配置 Redis 地址即可自动切换为集中式 limiter；
+# 未安装则自动回退进程内单例（仅单 worker 语义，启动日志会告警）。
+redis>=4.0  # optional
+
+# 说明：
+# - 不引入 MySQL/Redis/Neo4j/RabbitMQ（本战役用 SQLite + JSON，详见蓝图 §1.2）。
+# - python-whois 为可选被动源依赖，初赛扩展采集时再加，本战役不强制。
+# - 严禁引入 nmap / 主动扫描类库；主动探测能力在架构层物理不可达。

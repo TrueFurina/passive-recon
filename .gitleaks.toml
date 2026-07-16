@@ -1,0 +1,24 @@
+title = "Passive Agent — Gitleaks 密钥扫描配置"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "hunter-api-key"
+description = "Hunter API Key (被动信息搜集 Agent)"
+regex = '''[hH][uU][nN][tT][eE][rR][A-Za-z0-9_-]{0,20}["']?\s*[:=]\s*["']?[0-9a-zA-Z]{24,}["']?'''
+tags = ["hunter", "api-key"]
+
+[[rules]]
+id = "qichacha-secret"
+description = "Qichacha app_key / secret_key"
+regex = '''(app_key|secret_key|app_secret)\s*[:=]\s*["'][^"']{6,}["']'''
+tags = ["qichacha", "secret"]
+
+[allowlist]
+paths = [
+  '''config\.example\.json''',
+  '''scripts/SECRET_ROTATION\.md''',
+  '''docs/.*''',
+  '''\.workbuddy/.*''',
+]

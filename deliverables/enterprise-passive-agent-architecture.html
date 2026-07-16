@@ -1,0 +1,1053 @@
+<!DOCTYPE html>
+<!--
+  企业被动信息搜集 Agent · 系统架构图解页
+  设计系统：Supabase 谱系（深蓝 + 青绿 + 电光蓝 + 警示红）
+  实现依据：deliverables/design-tokens-spec.md · v1.0（彩格调定稿）
+  单文件 · 无外部依赖 · 离线可打开 · 可导出长图
+-->
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>企业被动信息搜集 Agent · 系统架构</title>
+<style>
+/* =========================================================
+   一、设计令牌（Design Tokens）— 严格照 design-tokens-spec.md
+   ========================================================= */
+:root{
+  /* —— 背景层 —— */
+  --bg-page:#07111C;
+  --bg-layer-top:#0D1B2A;
+  --bg-layer-mid:#0B1E30;
+  --bg-layer-lower:#0A1B2B;
+  --bg-layer-base:#081521;
+  --bg-card:#112233;
+  --bg-card-2:#14283C;
+  --bg-hover:#1A3349;
+  --bg-chip:#0E1A28;
+  --bg-banner:#2A0E12;
+
+  /* —— 品牌 / 强调 / 连接 —— */
+  --color-primary:#38BDF8;        /* 电光蓝 · 连线/半自动 */
+  --color-accent:#2DD4BF;         /* 青绿 · 高亮/主动/通过 */
+  /* —— 警示 / 合规红线 —— */
+  --color-danger:#FF4D4F;
+  --color-danger-light:#FF7A7D;
+  --color-danger-border:#5C1A1F;
+
+  /* —— 文本 —— */
+  --text-primary:#E6EDF3;
+  --text-secondary:#94A3B8;
+  --text-muted:#7C8BA1;
+  --text-disabled:#44566B;
+  --text-on-accent:#04161A;
+  --text-on-banner:#FFD9DC;
+
+  /* —— 网格 / 发光 —— */
+  --grid-line:rgba(148,163,184,.06);
+  --grid-line-strong:rgba(56,189,248,.09);
+  --glow-accent:0 0 12px rgba(45,212,191,.35);
+  --glow-primary:0 0 12px rgba(56,189,248,.30);
+
+  /* —— 间距标尺 —— */
+  --space-xs:4px; --space-sm:8px; --space-md:12px; --space-base:16px;
+  --space-lg:24px; --space-xl:32px; --space-2xl:48px; --space-3xl:64px;
+
+  /* —— 字体栈 —— */
+  --font-sans:"PingFang SC","Microsoft YaHei","Hiragino Sans GB","Source Han Sans SC","Noto Sans SC",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --font-mono:"JetBrains Mono","Fira Code","IBM Plex Mono","SFMono-Regular","Cascadia Code",Consolas,"Courier New",monospace;
+
+  /* —— 容器 —— */
+  --container-max:1200px;
+
+  /* —— 层色轨 —— */
+  --rail-top:#38BDF8;
+  --rail-mid:#2DD4BF;
+  --rail-lower:rgba(56,189,248,.6);
+  --rail-base:#475569;
+}
+
+/* =========================================================
+   二、基础重置
+   ========================================================= */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html{scroll-behavior:smooth;}
+body{
+  font-family:var(--font-sans);
+  background:var(--bg-page);
+  color:var(--text-primary);
+  font-size:15px;
+  line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
+}
+/* 全幅低对比网格背景（仅暗示坐标系） */
+body::before{
+  content:"";
+  position:fixed;
+  inset:0;
+  z-index:-1;
+  background-image:
+    linear-gradient(var(--grid-line) 1px,transparent 1px),
+    linear-gradient(90deg,var(--grid-line) 1px,transparent 1px);
+  background-size:32px 32px;
+  pointer-events:none;
+}
+code,.mono{font-family:var(--font-mono);}
+
+/* =========================================================
+   三、布局骨架
+   ========================================================= */
+.wrap{max-width:var(--container-max);margin:0 auto;padding:0 var(--space-lg);}
+.section{margin-top:var(--space-3xl);scroll-margin-top:84px;}
+.block-head{margin-bottom:var(--space-lg);}
+.block-head .eyebrow{
+  font-family:var(--font-mono);
+  font-size:11.5px;
+  letter-spacing:.12em;
+  text-transform:uppercase;
+  color:var(--color-accent);
+}
+.block-title{
+  font-size:24px;font-weight:600;line-height:1.3;
+  color:var(--text-primary);
+  margin-top:var(--space-xs);
+  display:flex;align-items:center;gap:var(--space-sm);
+}
+.block-title::before{
+  content:"";width:4px;height:22px;border-radius:2px;
+  background:var(--color-accent);box-shadow:var(--glow-accent);
+}
+.block-sub{color:var(--text-secondary);font-size:13px;margin-top:var(--space-xs);}
+
+/* =========================================================
+   四、顶部锚点导航（sticky 毛玻璃）
+   ========================================================= */
+.nav{
+  position:sticky;top:0;z-index:50;
+  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  background:rgba(7,17,28,.82);
+  border-bottom:1px solid rgba(148,163,184,.12);
+}
+.nav-inner{
+  max-width:var(--container-max);margin:0 auto;
+  display:flex;align-items:center;gap:var(--space-xs);
+  padding:12px var(--space-lg);flex-wrap:wrap;
+}
+.nav-brand{
+  font-family:var(--font-mono);font-size:12px;letter-spacing:.04em;
+  color:var(--color-accent);margin-right:var(--space-lg);
+  display:flex;align-items:center;gap:8px;white-space:nowrap;
+}
+.nav-brand .dot{width:8px;height:8px;border-radius:50%;background:var(--color-accent);box-shadow:var(--glow-accent);}
+.nav a{
+  position:relative;
+  text-decoration:none;color:var(--text-secondary);
+  font-size:13px;padding:6px 12px;border-radius:8px;
+  transition:color .18s ease,background .18s ease;
+  white-space:nowrap;
+}
+.nav a:hover{color:var(--text-primary);background:var(--bg-hover);}
+.nav a.active{color:var(--text-primary);}
+.nav a.active::after{
+  content:"";position:absolute;left:12px;right:12px;bottom:0;
+  height:2px;border-radius:2px;
+  background:var(--color-accent);box-shadow:var(--glow-accent);
+}
+
+/* =========================================================
+   五、区块 0 · 页头 + 合规红线横幅
+   ========================================================= */
+.masthead{padding-top:var(--space-2xl);text-align:center;}
+.masthead h1{
+  font-size:40px;font-weight:700;line-height:1.15;letter-spacing:-.02em;
+  color:var(--text-primary);
+}
+.masthead h1 .accent{color:var(--color-accent);}
+.masthead .tags{
+  display:flex;justify-content:center;gap:var(--space-sm);
+  margin-top:var(--space-base);flex-wrap:wrap;
+}
+.tag{
+  font-family:var(--font-mono);font-size:11.5px;letter-spacing:.02em;
+  color:var(--text-secondary);
+  background:var(--bg-chip);border:1px solid rgba(148,163,184,.16);
+  padding:5px 12px;border-radius:999px;
+}
+.tag b{color:var(--color-primary);font-weight:500;}
+
+/* 合规红线横幅 */
+.banner{
+  margin-top:var(--space-2xl);
+  background:var(--bg-banner);
+  border-left:4px solid var(--color-danger);
+  border-radius:10px;
+  padding:var(--space-lg) var(--space-xl);
+  display:flex;align-items:flex-start;gap:var(--space-lg);
+  position:relative;
+}
+.banner .b-flag{
+  font-family:var(--font-mono);font-size:11.5px;letter-spacing:.1em;
+  color:var(--color-danger-light);text-transform:uppercase;
+  border:1px solid var(--color-danger-border);border-radius:6px;
+  padding:4px 10px;white-space:nowrap;margin-top:2px;
+}
+.banner .b-rules{flex:1;display:flex;flex-direction:column;gap:10px;}
+.banner .b-rule{
+  display:flex;align-items:flex-start;gap:10px;
+  color:var(--text-on-banner);font-size:14px;line-height:1.5;
+}
+.banner .b-rule .num{
+  flex:none;width:20px;height:20px;border-radius:50%;
+  background:var(--color-danger);color:#fff;
+  font-family:var(--font-mono);font-size:11px;font-weight:700;
+  display:flex;align-items:center;justify-content:center;margin-top:1px;
+}
+.banner .b-rule b{color:#fff;font-weight:600;}
+.banner .b-rule .passive{color:var(--color-danger-light);font-weight:600;}
+.banner .b-check{
+  flex:none;display:flex;flex-direction:column;align-items:center;gap:6px;
+  padding-left:var(--space-lg);border-left:1px solid var(--color-danger-border);
+}
+.banner .b-check .mk{
+  width:38px;height:38px;border-radius:50%;
+  background:rgba(45,212,191,.14);border:1px solid rgba(45,212,191,.5);
+  color:var(--color-accent);font-size:18px;font-weight:700;
+  display:flex;align-items:center;justify-content:center;
+}
+.banner .b-check .tx{
+  font-family:var(--font-mono);font-size:11px;color:var(--color-accent);
+  letter-spacing:.02em;text-align:center;
+}
+
+/* =========================================================
+   六、区块 1 · 四层架构主图
+   ========================================================= */
+.layer-stack{display:flex;flex-direction:column;}
+
+/* 层区块容器（明度阶梯 + 左 3px 色轨） */
+.layer-block{
+  border-radius:14px;
+  padding:32px 28px;
+  position:relative;
+  border-left:3px solid var(--rail-color);
+  transition:box-shadow .2s ease;
+}
+.layer-block:hover{box-shadow:var(--glow-accent);}
+.layer-top{border-left-color:var(--rail-top);background:var(--bg-layer-top);}
+.layer-mid{border-left-color:var(--rail-mid);background:var(--bg-layer-mid);}
+.layer-lower{border-left-color:var(--rail-lower);background:var(--bg-layer-lower);}
+.layer-base{border-left-color:var(--rail-base);background:var(--bg-layer-base);}
+
+.layer-head{display:flex;align-items:center;gap:var(--space-md);margin-bottom:var(--space-lg);flex-wrap:wrap;}
+.layer-head .layer-no{
+  font-family:var(--font-mono);font-size:11.5px;letter-spacing:.1em;
+  color:var(--text-muted);text-transform:uppercase;
+}
+.layer-head h3{font-size:20px;font-weight:600;color:var(--text-primary);line-height:1.35;}
+.layer-head .status{
+  margin-left:auto;font-family:var(--font-mono);font-size:11px;
+  padding:4px 10px;border-radius:999px;
+  background:var(--bg-chip);border:1px solid rgba(148,163,184,.2);
+  color:var(--text-secondary);white-space:nowrap;
+}
+.layer-head .status.self{color:var(--color-accent);border-color:rgba(45,212,191,.4);}
+.layer-head .status.open{color:var(--color-primary);border-color:rgba(56,189,248,.4);}
+.layer-head .status.passive{color:var(--color-accent);border-color:rgba(45,212,191,.4);}
+
+/* 通用子模块 */
+.sub{margin-bottom:var(--space-lg);}
+.sub:last-child{margin-bottom:0;}
+.sub-label{
+  font-family:var(--font-mono);font-size:11.5px;letter-spacing:.04em;
+  color:var(--color-accent);margin-bottom:10px;display:flex;align-items:center;gap:8px;
+}
+.sub-label .bar{width:14px;height:2px;background:var(--color-accent);border-radius:2px;}
+
+/* 工具名 / 参数小片（等宽 chip） */
+.chip{
+  font-family:var(--font-mono);font-size:11.5px;line-height:1.4;
+  color:var(--text-secondary);
+  background:var(--bg-chip);
+  border:1px solid rgba(148,163,184,.14);
+  border-radius:6px;padding:3px 9px;margin:0 6px 6px 0;
+  display:inline-block;white-space:nowrap;
+}
+.chip.key{color:var(--text-primary);border-color:rgba(148,163,184,.22);}
+.chip-list{display:flex;flex-wrap:wrap;gap:2px;}
+
+.gateway-grid{display:grid;grid-template-columns:1fr 1fr;gap:var(--space-lg);}
+@media(max-width:780px){.gateway-grid{grid-template-columns:1fr;}}
+.sub-card{
+  background:var(--bg-card);border:1px solid rgba(148,163,184,.14);
+  border-radius:10px;padding:var(--space-base);
+}
+
+/* —— 三级人机审批机制（核心视觉锚点） —— */
+.approval{
+  border:1px solid rgba(45,212,191,.22);
+  border-radius:12px;
+  background:linear-gradient(180deg,rgba(45,212,191,.04),transparent);
+  box-shadow:var(--glow-accent);
+  padding:var(--space-lg);
+}
+.approval .ap-title{
+  display:flex;align-items:center;gap:10px;margin-bottom:var(--space-base);
+}
+.approval .ap-title .ic{
+  font-family:var(--font-mono);font-size:11px;letter-spacing:.08em;
+  color:var(--color-accent);border:1px solid rgba(45,212,191,.4);
+  border-radius:6px;padding:3px 8px;
+}
+.approval .ap-title b{font-size:15px;font-weight:600;color:var(--text-primary);}
+.ap-row{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--space-md);}
+@media(max-width:780px){.ap-row{grid-template-columns:1fr;}}
+.ap-cell{
+  background:var(--bg-card);border:1px solid rgba(148,163,184,.14);
+  border-radius:10px;padding:var(--space-base);
+}
+.ap-cell .badge{
+  display:inline-flex;align-items:center;gap:6px;
+  font-family:var(--font-mono);font-size:11.5px;
+  padding:4px 10px;border-radius:999px;margin-bottom:10px;
+}
+.ap-cell h4{font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:6px;}
+.ap-cell p{font-size:12.5px;color:var(--text-secondary);line-height:1.5;}
+.ap-cell .src{margin-top:8px;font-family:var(--font-mono);font-size:11px;color:var(--text-muted);}
+.b-auto{color:#2DD4BF;background:rgba(45,212,191,.12);border:1px solid rgba(45,212,191,.4);}
+.b-semi{color:#38BDF8;background:rgba(56,189,248,.12);border:1px solid rgba(56,189,248,.4);}
+.b-human{color:#FF4D4F;background:rgba(255,77,79,.12);border:1px solid rgba(255,77,79,.4);}
+
+/* —— 加权算力调度控制器 —— */
+.compute{margin-top:var(--space-lg);}
+.compute .c-bar{
+  display:flex;height:30px;border-radius:8px;overflow:hidden;
+  border:1px solid rgba(148,163,184,.16);
+}
+.compute .c-seg{display:flex;align-items:center;justify-content:center;
+  font-family:var(--font-mono);font-size:12px;color:#04161A;font-weight:600;}
+.c-a{background:#2DD4BF;flex:0 0 60%;}
+.c-b{background:#38BDF8;flex:0 0 30%;}
+.c-c{background:#7C8BA1;flex:0 0 10%;color:#04161A;}
+.compute .c-legend{
+  display:flex;justify-content:space-between;margin-top:8px;
+  font-family:var(--font-mono);font-size:11px;color:var(--text-muted);
+}
+.compute .c-notes{
+  margin-top:var(--space-base);display:flex;gap:var(--space-md);flex-wrap:wrap;
+}
+.compute .c-note{
+  font-size:12px;color:var(--text-secondary);
+  background:var(--bg-chip);border:1px solid rgba(148,163,184,.14);
+  border-radius:6px;padding:6px 10px;
+}
+.compute .c-note b{color:var(--color-accent);font-family:var(--font-mono);}
+
+/* —— 层间连接器（静态，向下数据流） —— */
+.connector{display:flex;justify-content:center;align-items:center;height:30px;}
+.connector .line{
+  width:2px;height:100%;
+  background:linear-gradient(var(--grid-line-strong),transparent);
+  position:relative;
+}
+.connector .line::after{
+  content:"";position:absolute;bottom:-1px;left:50%;transform:translateX(-50%);
+  border-left:5px solid transparent;border-right:5px solid transparent;
+  border-top:7px solid var(--color-primary);
+}
+/* 中层 → 下层 四向派发 */
+.connector-quad{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--space-md);padding:0 4%;}
+.connector-quad .cq{
+  display:flex;flex-direction:column;align-items:center;justify-content:flex-end;
+  height:46px;
+}
+.connector-quad .cq .cq-line{
+  width:2px;flex:1;background:linear-gradient(var(--grid-line-strong),transparent);
+  position:relative;
+}
+.connector-quad .cq .cq-line::after{
+  content:"";position:absolute;bottom:-1px;left:50%;transform:translateX(-50%);
+  border-left:5px solid transparent;border-right:5px solid transparent;
+  border-top:7px solid var(--color-primary);
+}
+.connector-quad .cq .cq-tx{
+  font-family:var(--font-mono);font-size:10.5px;color:var(--text-muted);
+  margin-bottom:4px;
+}
+.dispatch-note{
+  font-family:var(--font-mono);font-size:11px;color:var(--text-muted);
+  text-align:center;margin-top:8px;letter-spacing:.02em;line-height:1.5;
+}
+@media(max-width:780px){.connector-quad{grid-template-columns:repeat(2,1fr);row-gap:var(--space-base);}}
+
+/* —— 中层规划中枢 —— */
+.brain{
+  background:var(--bg-card);border:1px solid rgba(45,212,191,.22);
+  border-radius:12px;padding:var(--space-lg);text-align:center;
+}
+.brain .core{
+  display:inline-flex;align-items:center;gap:10px;
+  font-size:15px;font-weight:600;color:var(--color-accent);
+  font-family:var(--font-mono);letter-spacing:.02em;
+  padding:8px 16px;border:1px solid rgba(45,212,191,.4);border-radius:999px;
+  background:rgba(45,212,191,.06);box-shadow:var(--glow-accent);
+}
+.brain .flow{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:var(--space-xs);margin-top:var(--space-lg);}
+.brain .step{
+  display:flex;flex-direction:column;align-items:center;gap:6px;
+  min-width:130px;
+}
+.brain .step .n{
+  width:26px;height:26px;border-radius:50%;
+  background:rgba(45,212,191,.12);border:1px solid rgba(45,212,191,.5);
+  color:var(--color-accent);font-family:var(--font-mono);font-size:13px;font-weight:700;
+  display:flex;align-items:center;justify-content:center;
+}
+.brain .step .t{font-size:12px;color:var(--text-secondary);text-align:center;line-height:1.4;max-width:140px;}
+.brain .arrow{color:var(--color-primary);font-size:18px;margin:0 2px;}
+
+/* —— 下层四集群卡 —— */
+.clusters{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--space-md);}
+@media(max-width:900px){.clusters{grid-template-columns:repeat(2,1fr);}}
+@media(max-width:520px){.clusters{grid-template-columns:1fr;}}
+.cluster{
+  background:var(--bg-card);border:1px solid rgba(148,163,184,.14);
+  border-radius:10px;padding:var(--space-base);
+}
+.cluster:hover{background:var(--bg-hover);}
+.cluster h4{font-size:15px;font-weight:600;color:var(--text-primary);margin-bottom:4px;}
+.cluster .role{font-family:var(--font-mono);font-size:10.5px;color:var(--text-muted);margin-bottom:var(--space-base);letter-spacing:.02em;}
+.cluster .tools{display:flex;flex-direction:column;gap:6px;}
+.cluster .tools .chip{display:block;margin:0;width:100%;text-align:left;overflow:hidden;text-overflow:ellipsis;}
+.cluster .shell{
+  margin-top:var(--space-base);font-family:var(--font-mono);font-size:10px;
+  color:var(--color-primary);border-top:1px dashed rgba(56,189,248,.25);padding-top:8px;
+}
+
+/* —— 底层三栏 —— */
+.base-grid{display:grid;grid-template-columns:1.1fr 1fr;gap:var(--space-lg);}
+@media(max-width:860px){.base-grid{grid-template-columns:1fr;}}
+.base-col h4{font-size:15px;font-weight:600;color:var(--text-primary);margin-bottom:var(--space-base);}
+.neo4j{
+  background:var(--bg-card);border:1px solid rgba(148,163,184,.14);
+  border-radius:10px;padding:var(--space-base);
+}
+.neo4j svg{display:block;width:100%;height:auto;}
+
+/* 四层自动核验流水线 */
+.verify{display:flex;flex-direction:column;gap:0;}
+.v-step{
+  position:relative;display:flex;gap:var(--space-base);padding:var(--space-base) 0;
+  border-left:2px solid var(--color-primary);
+  margin-left:13px;padding-left:var(--space-lg);
+}
+.v-step:last-child{border-left-color:transparent;}
+.v-step .vn{
+  position:absolute;left:-13px;top:var(--space-base);
+  width:26px;height:26px;border-radius:50%;
+  background:var(--bg-page);border:2px solid var(--color-accent);
+  color:var(--color-accent);font-family:var(--font-mono);font-weight:700;font-size:12px;
+  display:flex;align-items:center;justify-content:center;
+}
+.v-step h5{font-size:14px;font-weight:600;color:var(--text-primary);}
+.v-step p{font-size:12.5px;color:var(--text-secondary);line-height:1.5;margin-top:2px;}
+.v-step .tag-passive{
+  display:inline-block;margin-top:6px;font-family:var(--font-mono);font-size:10.5px;
+  color:var(--color-accent);background:rgba(45,212,191,.1);
+  border:1px solid rgba(45,212,191,.35);border-radius:5px;padding:2px 8px;
+}
+.v-step .cross{color:var(--color-danger);font-weight:700;}
+
+.experience{
+  margin-top:var(--space-lg);
+  background:var(--bg-card);border:1px solid rgba(148,163,184,.14);
+  border-radius:10px;padding:var(--space-base);
+  display:flex;align-items:center;gap:var(--space-md);flex-wrap:wrap;
+}
+.experience .et{font-size:13px;color:var(--text-secondary);}
+.experience .back{
+  font-family:var(--font-mono);font-size:11px;color:var(--color-primary);
+  background:rgba(56,189,248,.1);border:1px solid rgba(56,189,248,.35);
+  border-radius:6px;padding:4px 10px;
+}
+
+/* =========================================================
+   七、区块 2 · 采集对象与范围
+   ========================================================= */
+.scope-grid{display:grid;grid-template-columns:1fr 1fr;gap:var(--space-lg);}
+@media(max-width:780px){.scope-grid{grid-template-columns:1fr;}}
+.scope-card{
+  background:var(--bg-layer-lower);border:1px solid rgba(148,163,184,.14);
+  border-radius:12px;padding:var(--space-lg);
+}
+.scope-card h4{font-size:15px;font-weight:600;color:var(--text-primary);margin-bottom:var(--space-base);}
+.scope-card p{font-size:14px;color:var(--text-secondary);line-height:1.7;}
+.obj-list{display:flex;flex-direction:column;gap:8px;margin-top:var(--space-base);}
+.obj-list .o{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--text-secondary);}
+.obj-list .o .d{width:6px;height:6px;border-radius:50%;background:var(--color-accent);flex:none;}
+.range-chips{display:flex;flex-wrap:wrap;gap:var(--space-xs);}
+.range-chips .chip{font-size:12px;padding:5px 11px;}
+
+/* =========================================================
+   八、区块 3 · 开源工具留档声明
+   ========================================================= */
+.declare{
+  background:var(--bg-banner);border-left:4px solid var(--color-danger-border);
+  border-radius:10px;padding:var(--space-lg) var(--space-xl);margin-bottom:var(--space-lg);
+}
+.declare p{color:var(--text-on-banner);font-size:14px;line-height:1.7;}
+.declare p b{color:#fff;}
+.declare .hl{color:var(--color-danger-light);font-weight:600;}
+
+.ledger{
+  width:100%;border-collapse:collapse;font-size:13px;
+  border:1px solid rgba(148,163,184,.16);border-radius:10px;overflow:hidden;
+}
+.ledger thead th{
+  background:var(--bg-card-2);color:var(--text-secondary);
+  font-family:var(--font-mono);font-size:11px;letter-spacing:.04em;text-transform:uppercase;
+  text-align:left;padding:12px var(--space-base);font-weight:600;
+  border-bottom:1px solid rgba(148,163,184,.18);
+}
+.ledger tbody td{padding:11px var(--space-base);border-bottom:1px solid rgba(148,163,184,.1);color:var(--text-secondary);vertical-align:top;}
+.ledger tbody tr:last-child td{border-bottom:none;}
+.ledger tbody tr:hover{background:var(--bg-hover);}
+.ledger .tool{font-family:var(--font-mono);font-size:12px;color:var(--text-primary);white-space:nowrap;}
+.ledger .use{color:var(--text-secondary);}
+.ledger .stat{
+  font-family:var(--font-mono);font-size:11px;white-space:nowrap;
+  color:var(--color-accent);background:rgba(45,212,191,.1);
+  border:1px solid rgba(45,212,191,.35);border-radius:5px;padding:2px 8px;
+}
+
+/* =========================================================
+   九、区块 4 · 图例与算力权重
+   ========================================================= */
+.legend-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--space-lg);}
+@media(max-width:860px){.legend-grid{grid-template-columns:1fr;}}
+.legend-card{
+  background:var(--bg-layer-lower);border:1px solid rgba(148,163,184,.14);
+  border-radius:12px;padding:var(--space-lg);
+}
+.legend-card h4{font-size:15px;font-weight:600;color:var(--text-primary);margin-bottom:var(--space-base);}
+.lg-row{display:flex;align-items:center;gap:var(--space-md);padding:8px 0;border-bottom:1px solid rgba(148,163,184,.08);}
+.lg-row:last-child{border-bottom:none;}
+.lg-sw{width:34px;height:14px;border-radius:4px;flex:none;}
+.lg-dot{width:14px;height:14px;border-radius:50%;flex:none;}
+.lg-tx{font-size:13px;color:var(--text-secondary);}
+.lg-tx b{color:var(--text-primary);font-family:var(--font-mono);font-size:11.5px;margin-right:6px;}
+.rail-sw{width:6px;height:22px;border-radius:3px;flex:none;}
+
+/* 页脚 */
+.foot{
+  margin-top:var(--space-3xl);padding:var(--space-2xl) 0 var(--space-3xl);
+  border-top:1px solid rgba(148,163,184,.12);
+  text-align:center;color:var(--text-muted);font-size:12px;font-family:var(--font-mono);
+  letter-spacing:.02em;line-height:1.8;
+}
+</style>
+</head>
+<body>
+
+<!-- ============ 顶部锚点导航 ============ -->
+<nav class="nav">
+  <div class="nav-inner">
+    <div class="nav-brand"><span class="dot"></span>PASSIVE&nbsp;AGENT&nbsp;·&nbsp;ARCH</div>
+    <a href="#overview" data-anchor="overview">架构总览</a>
+    <a href="#redline" data-anchor="redline">合规红线</a>
+    <a href="#scope" data-anchor="scope">采集范围</a>
+    <a href="#ledger" data-anchor="ledger">开源留档</a>
+    <a href="#legend" data-anchor="legend">图例算力</a>
+  </div>
+</nav>
+
+<div class="wrap">
+
+  <!-- ============ 区块 0：页头 + 合规红线横幅 ============ -->
+  <header class="masthead" id="overview">
+    <h1>企业被动信息搜集 <span class="accent">Agent</span> · 系统架构</h1>
+    <div class="tags">
+      <span class="tag">省级网安赛事</span>
+      <span class="tag">AI <b>Agent</b> 赛道</span>
+      <span class="tag"><b>纯被动</b>采集</span>
+      <span class="tag">零主动发包</span>
+    </div>
+
+    <!-- 合规红线横幅 -->
+    <div class="banner" id="redline">
+      <div class="b-flag">COMPLIANCE&nbsp;RED&nbsp;LINE</div>
+      <div class="b-rules">
+        <div class="b-rule">
+          <span class="num">1</span>
+          <span>仅允许<span class="passive">纯被动数据源</span>——公开索引、历史快照、第三方聚合接口，<b>不制造任何新的网络探测流量</b>。</span>
+        </div>
+        <div class="b-rule">
+          <span class="num">2</span>
+          <span>禁止<span class="passive">端口扫描 / TCP 发包 / 主动请求探测</span>——不对目标资产发起任何握手、探测或连接行为。</span>
+        </div>
+        <div class="b-rule">
+          <span class="num">3</span>
+          <span>API 频率限制超限<span class="passive">封禁 IP</span>——严格遵守第三方接口阈值，超限即熔断并回收出口。</span>
+        </div>
+      </div>
+      <div class="b-check">
+        <div class="mk">✓</div>
+        <div class="tx">合规校验<br>通过</div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ============ 区块 1：四层架构主图 ============ -->
+  <section class="section" id="arch">
+    <div class="block-head">
+      <div class="eyebrow">BLOCK 01 · ARCHITECTURE</div>
+      <h2 class="block-title">四层系统架构主图</h2>
+      <p class="block-sub">纵向分层 · 由上至下收敛入地；数据流自上而下，全程被动、无主动发包。左侧 3px 色轨区分层级，明度阶梯暗示地基感。</p>
+    </div>
+
+    <div class="layer-stack">
+
+      <!-- —— 顶层：人机调度与合规网关 —— -->
+      <div class="layer-block layer-top">
+        <div class="layer-head">
+          <span class="layer-no">LAYER 01</span>
+          <h3>人机调度与合规网关</h3>
+          <span class="status self">100% 自研</span>
+        </div>
+
+        <div class="gateway-grid">
+          <div class="sub-card">
+            <div class="sub-label"><span class="bar"></span>赛事 API 代理网关</div>
+            <div class="chip-list">
+              <span class="chip">多出口 IP 轮询</span>
+              <span class="chip">单接口限流</span>
+              <span class="chip">排队缓存</span>
+              <span class="chip">批量提交分片</span>
+              <span class="chip">结构化日志</span>
+            </div>
+          </div>
+          <div class="sub-card">
+            <div class="sub-label"><span class="bar"></span>全局合规拦截引擎</div>
+            <div class="chip-list">
+              <span class="chip">行为黑白名单</span>
+              <span class="chip">任务启动前置校验</span>
+              <span class="chip">数据源权限管控</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 三级人机审批机制（核心视觉锚点） -->
+        <div class="approval">
+          <div class="ap-title">
+            <span class="ic">CORE</span>
+            <b>三级人机审批机制</b>
+          </div>
+          <div class="ap-row">
+            <div class="ap-cell">
+              <span class="badge b-auto">✓ 自动</span>
+              <h4>低档 · 自动审批</h4>
+              <p>低风险基础查询，系统自动放行入库，无需人工介入。</p>
+              <div class="src">DNS / 工商基础查询</div>
+            </div>
+            <div class="ap-cell">
+              <span class="badge b-semi">⟳ 半自动</span>
+              <h4>中档 · 半自动</h4>
+              <p>自动入库并推送提醒，由人工按需复核确认。</p>
+              <div class="src">历史快照 / 开源仓库检索</div>
+            </div>
+            <div class="ap-cell">
+              <span class="badge b-human">⚠ 人工</span>
+              <h4>高档 · 人工复核</h4>
+              <p>高敏感资产情报，<b style="color:var(--color-danger-light)">必须人工复核</b>后方可入库。</p>
+              <div class="src">工控 / 政务资产情报</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 加权算力调度控制器 -->
+        <div class="compute">
+          <div class="sub-label" style="margin-top:var(--space-lg);"><span class="bar"></span>加权算力调度控制器</div>
+          <div class="c-bar">
+            <div class="c-seg c-a">A 60%</div>
+            <div class="c-seg c-b">B 30%</div>
+            <div class="c-seg c-c">C 10%</div>
+          </div>
+          <div class="c-legend">
+            <span>A 类 · 电网/矿山/政务</span>
+            <span>B 类 · 普通企业</span>
+            <span>C 类 · 小微企业</span>
+          </div>
+          <div class="c-notes">
+            <span class="c-note"><b>25min</b> 无新增自动回收</span>
+            <span class="c-note"><b>5min</b> 同步榜单倾斜</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="connector"><div class="line"></div></div>
+
+      <!-- —— 中层：全局规划 Agent —— -->
+      <div class="layer-block layer-mid">
+        <div class="layer-head">
+          <span class="layer-no">LAYER 02</span>
+          <h3>全局规划 Agent（LLM 微调）</h3>
+          <span class="status open">LLM 微调 · 股权穿透</span>
+        </div>
+
+        <div class="brain">
+          <div class="core">◎ 全局规划中枢 · PLANNING AGENT</div>
+          <div class="flow">
+            <div class="step"><span class="n">①</span><span class="t">企业全称输入</span></div>
+            <span class="arrow">→</span>
+            <div class="step"><span class="n">②</span><span class="t">股权穿透拆解</span></div>
+            <span class="arrow">→</span>
+            <div class="step"><span class="n">③</span><span class="t">下发 Web / 公众号 / 小程序 三类子任务</span></div>
+            <span class="arrow">→</span>
+            <div class="step"><span class="n">④</span><span class="t">盲区补充检索</span></div>
+            <span class="arrow">→</span>
+            <div class="step"><span class="n">⑤</span><span class="t">汇总交叉核验</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 中层 → 下层 四向派发连接器 -->
+      <div class="connector-quad">
+        <div class="cq"><span class="cq-tx">Web 资产</span><div class="cq-line"></div></div>
+        <div class="cq"><span class="cq-tx">公众号</span><div class="cq-line"></div></div>
+        <div class="cq"><span class="cq-tx">小程序</span><div class="cq-line"></div></div>
+        <div class="cq"><span class="cq-tx">工商股权</span><div class="cq-line"></div></div>
+      </div>
+      <p class="dispatch-note">工商股权源自 ② 股权穿透拆解，与 Web / 公众号 / 小程序 三类子任务并列，由中层规划 Agent 统一下发至下层四集群。</p>
+
+      <!-- —— 下层：四大专项采集集群 —— -->
+      <div class="layer-block layer-lower">
+        <div class="layer-head">
+          <span class="layer-no">LAYER 03</span>
+          <h3>四大专项采集集群</h3>
+          <span class="status open">初赛复用开源 · 封装调度层</span>
+        </div>
+
+        <div class="clusters">
+          <div class="cluster">
+            <h4>Web 资产采集 Agent</h4>
+            <div class="role">DOMAIN &amp; SUBDOMAIN</div>
+            <div class="tools">
+              <span class="chip">Subfinder</span>
+              <span class="chip">OneForAll</span>
+              <span class="chip">crt.sh</span>
+              <span class="chip">FOFA / Hunter 公开 API</span>
+              <span class="chip">Wayback 爬虫</span>
+            </div>
+            <div class="shell">▸ 封装调度层外壳</div>
+          </div>
+
+          <div class="cluster">
+            <h4>微信公众号采集 Agent</h4>
+            <div class="role">WECHAT OFFICIAL</div>
+            <div class="tools">
+              <span class="chip">搜狗微信</span>
+              <span class="chip">新榜</span>
+              <span class="chip">企业新媒体数据库</span>
+            </div>
+            <div class="shell">▸ 封装调度层外壳</div>
+          </div>
+
+          <div class="cluster">
+            <h4>小程序采集 Agent</h4>
+            <div class="role">MINI-PROGRAM</div>
+            <div class="tools">
+              <span class="chip">七麦</span>
+              <span class="chip">微信开放平台检索工具</span>
+            </div>
+            <div class="shell">▸ 封装调度层外壳</div>
+          </div>
+
+          <div class="cluster">
+            <h4>工商股权采集 Agent</h4>
+            <div class="role">BUSINESS REGISTRY</div>
+            <div class="tools">
+              <span class="chip">爱企查 / 企查开放接口</span>
+              <span class="chip">ENScan_GO</span>
+            </div>
+            <div class="shell">▸ 封装调度层外壳</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="connector"><div class="line"></div></div>
+
+      <!-- —— 底层：情报存储与四层核验知识库 —— -->
+      <div class="layer-block layer-base">
+        <div class="layer-head">
+          <span class="layer-no">LAYER 04</span>
+          <h3>情报存储与四层核验知识库</h3>
+          <span class="status passive">被动入库</span>
+        </div>
+
+        <div class="base-grid">
+          <!-- Neo4j 资产关联图谱 -->
+          <div class="base-col">
+            <h4>Neo4j 资产关联图谱</h4>
+            <div class="neo4j">
+              <svg viewBox="0 0 580 250" role="img" aria-label="企业资产关联拓扑">
+                <!-- 连线（电光蓝 opacity .55） -->
+                <g stroke="#38BDF8" stroke-opacity=".55" stroke-width="1.5" fill="none">
+                  <line x1="305" y1="125" x2="125" y2="58"/>
+                  <line x1="305" y1="125" x2="475" y2="51"/>
+                  <line x1="305" y1="125" x2="490" y2="126"/>
+                  <line x1="305" y1="125" x2="490" y2="201"/>
+                  <line x1="125" y1="58" x2="65" y2="186"/>
+                  <line x1="125" y1="58" x2="170" y2="206"/>
+                </g>
+                <!-- 节点（青绿描边） -->
+                <g font-family="monospace" font-size="11" fill="#94A3B8" text-anchor="middle">
+                  <g>
+                    <rect x="250" y="105" width="110" height="40" rx="8" fill="#14283C" stroke="#2DD4BF" stroke-opacity=".5"/>
+                    <text x="305" y="129">企业·母公司</text>
+                  </g>
+                  <g>
+                    <rect x="70" y="40" width="110" height="36" rx="8" fill="#14283C" stroke="#2DD4BF" stroke-opacity=".5"/>
+                    <text x="125" y="62">子公司</text>
+                  </g>
+                  <g>
+                    <rect x="20" y="170" width="90" height="32" rx="8" fill="#14283C" stroke="#2DD4BF" stroke-opacity=".5"/>
+                    <text x="65" y="190">孙公司</text>
+                  </g>
+                  <g>
+                    <rect x="120" y="190" width="100" height="32" rx="8" fill="#14283C" stroke="#2DD4BF" stroke-opacity=".5"/>
+                    <text x="170" y="210">工控配套</text>
+                  </g>
+                  <g>
+                    <rect x="430" y="35" width="90" height="32" rx="8" fill="#14283C" stroke="#2DD4BF" stroke-opacity=".5"/>
+                    <text x="475" y="55">域名</text>
+                  </g>
+                  <g>
+                    <rect x="445" y="110" width="90" height="32" rx="8" fill="#14283C" stroke="#2DD4BF" stroke-opacity=".5"/>
+                    <text x="490" y="130">公众号</text>
+                  </g>
+                  <g>
+                    <rect x="445" y="185" width="90" height="32" rx="8" fill="#14283C" stroke="#2DD4BF" stroke-opacity=".5"/>
+                    <text x="490" y="205">小程序</text>
+                  </g>
+                </g>
+              </svg>
+            </div>
+          </div>
+
+          <!-- 四层自动核验流水线 -->
+          <div class="base-col">
+            <h4>四层自动核验流水线（全程无主动发包）</h4>
+            <div class="verify">
+              <div class="v-step">
+                <span class="vn">1</span>
+                <div>
+                  <h5>工商主体匹配</h5>
+                  <p>以工商登记主体为锚点，校验采集资产与目标企业的权属一致性。</p>
+                  <span class="tag-passive">纯被动</span>
+                </div>
+              </div>
+              <div class="v-step">
+                <span class="vn">2</span>
+                <div>
+                  <h5>DNS 被动存活校验</h5>
+                  <p>仅采用被动 DNS 历史记录与公开解析库核验，不主动发起任何探测请求。</p>
+                  <span class="tag-passive">纯被动</span>
+                </div>
+              </div>
+              <div class="v-step">
+                <span class="vn">3</span>
+                <div>
+                  <h5>时间过滤</h5>
+                  <p>1 年以上已注销 / 长期无更新的资产予以剔除，保证情报时效性。</p>
+                  <span class="tag-passive">纯被动</span>
+                </div>
+              </div>
+              <div class="v-step">
+                <span class="vn">4</span>
+                <div>
+                  <h5>多源交叉验证</h5>
+                  <p>需 <span class="cross">≥2 独立源</span> 佐证方才入库，单一来源一律留存待核。</p>
+                  <span class="tag-passive">纯被动</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 测绘经验库 -->
+        <div class="experience">
+          <span class="et">测绘经验库：同类企业采集策略复用，沉淀为可复用策略模板。</span>
+          <span class="back">策略复用 → 回流中层规划 Agent</span>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ============ 区块 2：采集对象与范围 ============ -->
+  <section class="section" id="scope">
+    <div class="block-head">
+      <div class="eyebrow">BLOCK 02 · TARGET &amp; SCOPE</div>
+      <h2 class="block-title">采集对象与范围说明</h2>
+      <p class="block-sub">以工商股权穿透确定的企业实体为边界，覆盖其全量对外资产。</p>
+    </div>
+
+    <div class="scope-grid">
+      <div class="scope-card">
+        <h4>采集对象</h4>
+        <p>以目标企业为根，沿股权关系向下穿透，对其全部关联实体资产进行被动采集。</p>
+        <div class="obj-list">
+          <div class="o"><span class="d"></span>母公司（目标企业本体）</div>
+          <div class="o"><span class="d"></span>全资子公司</div>
+          <div class="o"><span class="d"></span>控股子公司</div>
+          <div class="o"><span class="d"></span>分公司</div>
+        </div>
+      </div>
+      <div class="scope-card">
+        <h4>采集范围（九类资产）</h4>
+        <div class="range-chips">
+          <span class="chip">ICP 域名</span>
+          <span class="chip">子域名</span>
+          <span class="chip">旁站站点</span>
+          <span class="chip">微信公众号</span>
+          <span class="chip">小程序</span>
+          <span class="chip">历史快照</span>
+          <span class="chip">工商股权</span>
+          <span class="chip">开源泄露</span>
+          <span class="chip">工控配套系统</span>
+        </div>
+        <p style="margin-top:var(--space-base);font-size:13px;color:var(--text-muted);font-family:var(--font-mono);">※ 九类范围与四大采集集群一一对应，全部通过被动数据源获取。</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 区块 3：开源工具留档声明 ============ -->
+  <section class="section" id="ledger">
+    <div class="block-head">
+      <div class="eyebrow">BLOCK 03 · OPEN-SOURCE LEDGER</div>
+      <h2 class="block-title">开源工具留档声明</h2>
+      <p class="block-sub">与区块 1「封装调度层」对接——所有第三方开源工具均经封装调度，可现场溯源核验。</p>
+    </div>
+
+    <div class="declare">
+      <p>所有第三方开源工具均须<span class="hl">留档备案</span>，决赛专家可<span class="hl">现场源码核验、全程可追溯</span>。本系统仅以<span class="hl">封装调度层</span>外壳调用开源组件，原始工具名、版本与用途逐项登记，杜绝未授权改造与主动发包行为。</p>
+    </div>
+
+    <table class="ledger">
+      <thead>
+        <tr><th style="width:22%">工具名 / 组件</th><th style="width:50%">用途</th><th style="width:28%">留档状态</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="tool">Subfinder</td><td class="use">Web 子域名被动枚举</td><td><span class="stat">已归档</span></td></tr>
+        <tr><td class="tool">OneForAll</td><td class="use">Web 子域名综合查询</td><td><span class="stat">已归档</span></td></tr>
+        <tr><td class="tool">crt.sh</td><td class="use">证书透明度日志被动查询</td><td><span class="stat">已归档</span></td></tr>
+        <tr><td class="tool">FOFA</td><td class="use">网络空间资产检索（公开 API）</td><td><span class="stat">已归档</span></td></tr>
+        <tr><td class="tool">Hunter</td><td class="use">威胁情报资产检索（公开 API）</td><td><span class="stat">已归档</span></td></tr>
+        <tr><td class="tool">Wayback</td><td class="use">历史快照被动爬虫</td><td><span class="stat">已归档</span></td></tr>
+        <tr><td class="tool">搜狗微信</td><td class="use">微信公众号被动检索</td><td><span class="stat">已归档</span></td></tr>
+        <tr><td class="tool">新榜</td><td class="use">新媒体榜单 / 账号检索</td><td><span class="stat">已归档</span></td></tr>
+        <tr><td class="tool">企业新媒体数据库</td><td class="use">公众号 / 小程序资产检索</td><td><span class="stat">已归档</span></td></tr>
+        <tr><td class="tool">七麦</td><td class="use">小程序 / App 分发检索</td><td><span class="stat">已归档</span></td></tr>
+        <tr><td class="tool">微信开放平台检索工具</td><td class="use">小程序公开检索</td><td><span class="stat">已归档</span></td></tr>
+        <tr><td class="tool">ENScan_GO</td><td class="use">工商股权批量查询</td><td><span class="stat">已归档</span></td></tr>
+        <tr><td class="tool">爱企查 / 企查开放接口</td><td class="use">工商主体查询</td><td><span class="stat">已归档</span></td></tr>
+        <tr><td class="tool">Neo4j</td><td class="use">资产关联图谱存储（自部署）</td><td><span class="stat">已归档</span></td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ============ 区块 4：图例与算力权重 ============ -->
+  <section class="section" id="legend">
+    <div class="block-head">
+      <div class="eyebrow">BLOCK 04 · LEGEND &amp; WEIGHT</div>
+      <h2 class="block-title">图例与算力权重说明</h2>
+      <p class="block-sub">统一色系语义：青绿=主动/自动通过 · 电光蓝=半自动/连线 · 警示红=人工/合规边界。</p>
+    </div>
+
+    <div class="legend-grid">
+      <!-- 三级审批三态 -->
+      <div class="legend-card">
+        <h4>三级审批三态色阶</h4>
+        <div class="lg-row">
+          <span class="lg-dot" style="background:#2DD4BF;border:1px solid rgba(45,212,191,.5)"></span>
+          <span class="lg-tx"><b>自动</b>低档 · DNS / 工商基础查询（系统放行）</span>
+        </div>
+        <div class="lg-row">
+          <span class="lg-dot" style="background:#38BDF8;border:1px solid rgba(56,189,248,.5)"></span>
+          <span class="lg-tx"><b>半自动</b>中档 · 历史快照 / 开源检索（自动入库 + 提醒）</span>
+        </div>
+        <div class="lg-row">
+          <span class="lg-dot" style="background:#FF4D4F;border:1px solid rgba(255,77,79,.5)"></span>
+          <span class="lg-tx"><b>人工</b>高档 · 工控 / 政务资产（必须人工复核）</span>
+        </div>
+      </div>
+
+      <!-- 算力 60·30·10 -->
+      <div class="legend-card">
+        <h4>算力权重 60·30·10</h4>
+        <div class="c-bar" style="height:28px;">
+          <div class="c-seg c-a">60%</div>
+          <div class="c-seg c-b">30%</div>
+          <div class="c-seg c-c">10%</div>
+        </div>
+        <div class="c-legend" style="margin-top:10px;">
+          <span><span class="lg-sw" style="display:inline-block;background:#2DD4BF;width:12px;height:12px;border-radius:3px;margin-right:6px;"></span>A 类 · 电网/矿山/政务</span>
+          <span><span class="lg-sw" style="display:inline-block;background:#38BDF8;width:12px;height:12px;border-radius:3px;margin-right:6px;"></span>B 类 · 普通企业</span>
+          <span><span class="lg-sw" style="display:inline-block;background:#7C8BA1;width:12px;height:12px;border-radius:3px;margin-right:6px;"></span>C 类 · 小微企业</span>
+        </div>
+      </div>
+
+      <!-- 四层色轨 -->
+      <div class="legend-card">
+        <h4>四层色轨图例</h4>
+        <div class="lg-row">
+          <span class="rail-sw" style="background:#38BDF8"></span>
+          <span class="lg-tx"><b>LAYER 01</b>人机调度与合规网关（顶层 · 最亮）</span>
+        </div>
+        <div class="lg-row">
+          <span class="rail-sw" style="background:#2DD4BF"></span>
+          <span class="lg-tx"><b>LAYER 02</b>全局规划 Agent（中层）</span>
+        </div>
+        <div class="lg-row">
+          <span class="rail-sw" style="background:rgba(56,189,248,.6)"></span>
+          <span class="lg-tx"><b>LAYER 03</b>四大专项采集集群（下层）</span>
+        </div>
+        <div class="lg-row">
+          <span class="rail-sw" style="background:#475569"></span>
+          <span class="lg-tx"><b>LAYER 04</b>情报存储与知识库（底层 · 最沉）</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="foot">
+    企业被动信息搜集 Agent · 系统架构图解 &nbsp;·&nbsp; 纯被动采集 · 零主动发包<br>
+    Design System: Supabase 谱系（深蓝 + 青绿 + 电光蓝 + 警示红） &nbsp;·&nbsp; 单文件 · 无外部依赖 · 可离线 / 可导出长图
+  </footer>
+
+</div>
+
+<script>
+/* 轻量 scroll-spy：仅用于锚点当前态高亮，无外部依赖、离线可用 */
+(function(){
+  var links = Array.prototype.slice.call(document.querySelectorAll('.nav a[data-anchor]'));
+  var map = {};
+  links.forEach(function(a){ map[a.getAttribute('data-anchor')] = a; });
+  var ids = ['overview','redline','scope','ledger','legend'];
+  var sections = ids.map(function(id){ return document.getElementById(id); });
+  function onScroll(){
+    var pos = window.scrollY + 120;
+    var current = ids[0];
+    sections.forEach(function(sec){
+      if(sec && sec.offsetTop <= pos) current = sec.id;
+    });
+    links.forEach(function(a){ a.classList.remove('active'); });
+    if(map[current]) map[current].classList.add('active');
+  }
+  window.addEventListener('scroll', onScroll, {passive:true});
+  onScroll();
+})();
+</script>
+
+</body>
+</html>
