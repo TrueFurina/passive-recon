@@ -1,11 +1,20 @@
 # ===== 密钥与本地配置（禁止入库）=====
 config.json
 config.json.bak*
+config.json.local*
 .env
+
+# ===== 临时审计/质检脚本 =====
+_audit_*
+_verify_*
 
 # ===== 竞赛归档（FAFU 软件杯：含真实采集数据/PII/API密钥，禁止入库）=====
 # 注：原始归档路径曾误写为 archive/competition-artifacts/FAFU/，实际位于 deliverables/FAFU/
 deliverables/FAFU/
+
+# ===== 二进制图片（已有更小的 HTML/SVG 版本）=====
+*.png
+!deliverables/FAFU/**/*.png
 
 # ===== 运行期数据 =====
 data/

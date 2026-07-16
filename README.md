@@ -13,17 +13,111 @@
 ## 快速开始
 
 ```bash
-# 安装依赖
+# 1. 安装依赖
 pip install -r requirements.txt
 
-# 配置 API Key（鹰图 Hunter、企查查）
+# 2. 配置 API 密钥（二选一）
+#
+# 方式 A：环境变量（推荐，避免密钥落盘）
+#   Windows PowerShell:
+#     $json='{"hunter":["key1"],"qichacha":{"app_key":"xxx","secret_key":"xxx"}}'
+#     [Environment]::SetEnvironmentVariable('PASSIVE_API_KEYS', $json, 'User')
+#   Linux/macOS:
+#     export PASSIVE_API_KEYS='{"hunter":["key1"],"qichacha":{"app_key":"xxx","secret_key":"xxx"}}'
+#
+# 方式 B：config.json 文件
 cp config.example.json config.json
 # 编辑 config.json 填入你的 Key
 
-# 一通百通：任意目标 → 自动推断域名 → 全源采集
+# 3. 一键采集：任意目标 → 自动推断域名 → 全源采集
 python cli.py collect 北京大学
 python cli.py collect --domain example.com 某企业
 ```
+
+## 配置说明
+
+所有配置项通过 **环境变量 → `.env` 文件 → `config.json`** 三级优先级加载（高→低）。
+
+### 核心环境变量
+
+| 环境变量 | 类型 | 说明 | 必填 |
+|----------|------|------|------|
+| `PASSIVE_API_KEYS` | JSON 字符串 | 数据源 API 密钥（见下方示例） | ✅ 部分源需要 |
+| `PASSIVE_API_TOKENS` | 逗号分隔 | REST API 鉴权令牌列表 | 可选 |
+| `PASSIVE_API_KEY` | 字符串 | 单令牌回退（自动并入 `API_TOKENS`） | 可选 |
+| `PASSIVE_DB_PATH` | 路径 | SQLite 数据库路径（默认 `data/agent.db`） | 可选 |
+| `PASSIVE_LOG_PATH` | 路径 | 审计日志路径（默认 `data/audit.jsonl`） | 可选 |
+| `PASSIVE_OUTBOUND_REQUIRE_APPROVAL` | `true`/`false` | 出站强制审批开关 | 可选 |
+| `PASSIVE_PII_SALT` | 字符串 | PII 脱敏盐值 | 可选 |
+| `PASSIVE_PII_KEY` | 字符串 | PII 加密密钥 | 可选 |
+
+### API 密钥配置（`PASSIVE_API_KEYS`）
+
+```json
+{
+  "hunter": ["key1", "key2", "..."],
+  "qichacha": {
+    "app_key": "your_app_key",
+    "secret_key": "your_secret_key"
+  }
+}
+```
+
+| 数据源 | 是否需要密钥 | 备注 |
+|--------|-------------|------|
+| **Hunter（鹰图）** | ✅ 需要 | 支持多 Key 自动轮询、限频切换 |
+| **Qichacha（企查查）** | ✅ 需要 | 需配置 `app_key` + `secret_key` |
+| **FOFA** | ✅ 需要 | 需配置 email + Key |
+| **SecurityTrails** | ✅ 需要 | 单 Key |
+| crt.sh / HackerTarget / URLScan / 等 | ❌ 免费 | 无需密钥 |
+
+### 设置方式
+
+<details>
+<summary><b>📌 Windows 永久设置（PowerShell）</b></summary>
+
+```powershell
+# 设置 API 密钥（JSON 格式）
+$json='{"hunter":["key1","key2"],"qichacha":{"app_key":"xxx","secret_key":"xxx"}}'
+[System.Environment]::SetEnvironmentVariable('PASSIVE_API_KEYS', $json, 'User')
+
+# 设置 API 鉴权令牌
+[System.Environment]::SetEnvironmentVariable('PASSIVE_API_TOKENS', 'mytoken1,mytoken2', 'User')
+```
+> 设置后需**重启终端/IDE** 才能生效。
+</details>
+
+<details>
+<summary><b>📌 Linux/macOS 永久设置（~/.bashrc 或 ~/.zshrc）</b></summary>
+
+```bash
+export PASSIVE_API_KEYS='{"hunter":["key1","key2"],"qichacha":{"app_key":"xxx","secret_key":"xxx"}}'
+export PASSIVE_API_TOKENS='mytoken1,mytoken2'
+```
+> 执行 `source ~/.bashrc` 或重新登录后生效。
+</details>
+
+<details>
+<summary><b>📌 本地开发：使用 .env 文件</b></summary>
+
+复制 `.env.example` 为 `.env`，填入真实值：
+```bash
+cp .env.example .env
+# 编辑 .env 填入密钥
+```
+> **注意：`.env` 已在 `.gitignore` 中，不会被提交到 GitHub。**
+</details>
+
+<details>
+<summary><b>📌 传统方式：config.json</b></summary>
+
+```bash
+cp config.example.json config.json
+# 编辑 config.json 填入你的 Key
+```
+> **注意：`config.json` 已在 `.gitignore` 中，不会提交到 GitHub。**
+> 但为安全起见，仍建议优先使用环境变量。
+</details>
 
 ## 目录结构
 
