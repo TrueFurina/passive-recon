@@ -211,11 +211,6 @@ pytest tests/test_passive_egress.py -v
 python scripts/guard_passive.py
 ```
 
-## 相关项目
-
-- [🏆 FAFU 比赛全记录](./deliverables/FAFU/competition-raw/README.md) — 福建农林大学被动信息收集比赛（🥇 第一名）
-- [📊 FAFU 正式报告](./deliverables/FAFU/osint-report/) — 整理后的交付报告（HTML/PPT/XLSX）
-
 ---
 
 *DBAPPSecurity Ltd — Passive Information Collection Agent for Enterprises*
