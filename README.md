@@ -4,6 +4,8 @@
 >
 > 纯被动（零接触目标系统）OSINT/EASM/CTEM 企业级资产信息收集平台
 
+[![CI](https://github.com/TrueFurina/passive-recon/actions/workflows/ci.yml/badge.svg)](https://github.com/TrueFurina/passive-recon/actions/workflows/ci.yml)
+
 ---
 
 ## 项目定位
