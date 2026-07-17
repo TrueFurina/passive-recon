@@ -71,7 +71,17 @@ python cli.py collect --domain example.com 某企业
 | **Qichacha（企查查）** | ✅ 需要 | 需配置 `app_key` + `secret_key` |
 | **FOFA** | ✅ 需要 | 需配置 email + Key |
 | **SecurityTrails** | ✅ 需要 | 单 Key |
-| crt.sh / HackerTarget / URLScan / 等 | ❌ 免费 | 无需密钥 |
+| **Shodan** | ✅ 需要 | 互联网设备搜索 |
+| **VirusTotal** | ✅ 需要 | 被动 DNS 子域名 |
+| **ZoomEye** | ✅ 需要 | 网络空间测绘 |
+| **GitHub** | ⚠️ 可选（免费） | 代码泄露搜索 |
+| **Wayback Machine** | ❌ 免费 | 历史子域名/URL 存档 |
+| **DNSDumpster** | ❌ 免费 | DNS 映射 / MX/NS 记录 |
+| **CommonCrawl** | ❌ 免费 | 海量历史网页数据 |
+| **crt.sh** | ❌ 免费 | 证书透明日志 |
+| **HackerTarget** | ❌ 免费 | DNS 查询 |
+| **URLScan.io** | ❌ 免费 | 历史网页快照 |
+| **AlienVault OTX** | ❌ 免费 | 被动 DNS / 威胁情报 |
 
 ### 设置方式
 
