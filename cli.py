@@ -497,110 +497,110 @@ def cmd_qichacha_verify3(args) -> None:
 
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
-        prog="cli.py", description="企业被动信息搜集 Agent 命令行面板")
+        prog="cli.py", description="Passive Recon — Enterprise OSINT/EASM/CTEM CLI")
     sub = p.add_subparsers(dest="cmd", required=True)
 
-    sp = sub.add_parser("audit-queue", help="查看合规审计队列")
+    sp = sub.add_parser("audit-queue", help="View compliance audit queue")
     sp.add_argument("--limit", type=int, default=20)
     sp.set_defaults(func=cmd_audit_queue)
 
-    sp = sub.add_parser("resume", help="断点续跑：加载任务快照")
+    sp = sub.add_parser("resume", help="Resume task from snapshot")
     sp.add_argument("task_id")
     sp.set_defaults(func=cmd_resume)
 
-    sp = sub.add_parser("enumerate", help="R3 全主体枚举")
+    sp = sub.add_parser("enumerate", help="Full subject enumeration")
     sp.add_argument("enterprise")
     sp.add_argument("--depth", type=int, default=3)
     sp.set_defaults(func=cmd_enumerate)
 
-    sp = sub.add_parser("submit-status", help="R6 频控/提交状态")
+    sp = sub.add_parser("submit-status", help="Rate limit / submission status")
     sp.add_argument("--ip", default="127.0.0.1")
     sp.set_defaults(func=cmd_submit_status)
 
-    sp = sub.add_parser("compliance-status", help="R1 合规态势")
+    sp = sub.add_parser("compliance-status", help="Compliance dashboard")
     sp.set_defaults(func=cmd_compliance_status)
 
-    sp = sub.add_parser("inventory-export", help="R5 台账导出")
+    sp = sub.add_parser("inventory-export", help="Export asset inventory")
     sp.add_argument("--path", default="")
     sp.set_defaults(func=cmd_inventory_export)
 
-    # ⭐ 一通百通：全能被动资产采集
-    sp = sub.add_parser("collect", help="🎯 全能被动资产采集（自动推断域名 + 6大数据源）")
-    sp.add_argument("name", help="目标名称：北京大学、阿里巴巴、pku.edu.cn...")
-    sp.add_argument("--domain", default="", help="主域名（可选，不传则自动推断）")
-    sp.add_argument("--sources", default="", help="数据源逗号分隔，默认全部（crt.sh,hackertarget,otx,urlscan,hunter）")
-    sp.add_argument("--export", default="", help="导出 Excel 报告路径（如 report.xlsx）")
+    # ⭐ One command to rule them all
+    sp = sub.add_parser("collect", help="🎯 One-shot passive asset collection (auto domain inference + 15 sources)")
+    sp.add_argument("name", help="Target name: 'Tsinghua University', 'Alibaba', 'pku.edu.cn'...")
+    sp.add_argument("--domain", default="", help="Main domain (optional, auto-inferred if omitted)")
+    sp.add_argument("--sources", default="", help="Comma-separated sources, default all (crt.sh,hackertarget,otx,urlscan,hunter,...)")
+    sp.add_argument("--export", default="", help="Export Excel report path (e.g. report.xlsx)")
     sp.set_defaults(func=cmd_collect)
 
-    # 批量模式
-    sp = sub.add_parser("batch", help="📋 批量采集：文件每行一个目标")
-    sp.add_argument("file", help="目标列表文件（每行一个企业名/域名）")
-    sp.add_argument("--domain", default="", help="统一域名后缀（可选）")
-    sp.add_argument("--sources", default="", help="数据源逗号分隔")
-    sp.add_argument("--export", default="", help="导出汇总 Excel")
+    # Batch mode
+    sp = sub.add_parser("batch", help="📋 Batch collection: one target per line")
+    sp.add_argument("file", help="Target list file (one name/domain per line)")
+    sp.add_argument("--domain", default="", help="Common domain suffix (optional)")
+    sp.add_argument("--sources", default="", help="Comma-separated sources")
+    sp.add_argument("--export", default="", help="Export summary Excel")
     sp.set_defaults(func=cmd_batch)
 
-    # 通用导入（不限 FAFU）
-    sp = sub.add_parser("import-path", help="从已有资产目录/文件导入种子数据")
-    sp.add_argument("path", help="目录或文件路径")
-    sp.add_argument("--enterprise", default="", help="目标名称（可选，自动从目录名推断）")
-    sp.add_argument("--domain", default="", help="主域名（可选，自动推断）")
+    # Generic import
+    sp = sub.add_parser("import-path", help="Import seed data from asset directory/file")
+    sp.add_argument("path", help="Directory or file path")
+    sp.add_argument("--enterprise", default="", help="Target name (optional, auto-inferred from dir)")
+    sp.add_argument("--domain", default="", help="Main domain (optional, auto-inferred)")
     sp.set_defaults(func=cmd_import_path)
 
-    # 列出数据源
-    sp = sub.add_parser("list-sources", help="列出可用被动数据源及状态")
+    # List sources
+    sp = sub.add_parser("list-sources", help="List available passive data sources and status")
     sp.set_defaults(func=cmd_list_sources)
 
-    # 域推断查询
-    sp = sub.add_parser("domain-info", help="查询任意目标的域推断结果")
-    sp.add_argument("name", help="目标名称")
+    # Domain info
+    sp = sub.add_parser("domain-info", help="Query domain inference result for a target")
+    sp.add_argument("name", help="Target name")
     sp.set_defaults(func=cmd_domain_info)
 
-    # ═══ 企查查 新命令 ═══
-    sp = sub.add_parser("qichacha-detail", help="企查查 企业工商详情查询")
-    sp.add_argument("keyword", help="统一社会信用代码/企业名称")
+    # ═══ Qichacha commands ═══
+    sp = sub.add_parser("qichacha-detail", help="Qichacha enterprise detail query")
+    sp.add_argument("keyword", help="Unified social credit code / enterprise name")
     sp.set_defaults(func=cmd_qichacha_detail)
 
-    sp = sub.add_parser("qichacha-verify2", help="企查查 企业二要素核验")
-    sp.add_argument("credit_code", help="统一社会信用代码")
-    sp.add_argument("verify_name", help="核验名称（企业名或法人名）")
+    sp = sub.add_parser("qichacha-verify2", help="Qichacha 2-factor verification")
+    sp.add_argument("credit_code", help="Unified social credit code")
+    sp.add_argument("verify_name", help="Verification name (enterprise or legal person)")
     sp.add_argument("--verify-type", default="1", choices=["1","2"],
-                    help="1=核验企业名称 2=核验法定代表人名称")
+                    help="1=verify enterprise name 2=verify legal person name")
     sp.set_defaults(func=cmd_qichacha_verify2)
 
-    sp = sub.add_parser("qichacha-verify3", help="企查查 企业三要素核验")
-    sp.add_argument("credit_code", help="统一社会信用代码")
-    sp.add_argument("company_name", help="企业名称")
-    sp.add_argument("oper_name", help="法定代表人名称")
+    sp = sub.add_parser("qichacha-verify3", help="Qichacha 3-factor verification")
+    sp.add_argument("credit_code", help="Unified social credit code")
+    sp.add_argument("company_name", help="Enterprise name")
+    sp.add_argument("oper_name", help="Legal representative name")
     sp.set_defaults(func=cmd_qichacha_verify3)
 
-    # 资产变化追踪
-    sp = sub.add_parser("diff", help="📊 资产变化追踪：对比两次采集结果")
-    sp.add_argument("name", help="目标名称")
-    sp.add_argument("old_dir", help="旧数据目录")
-    sp.add_argument("new_dir", help="新数据目录")
-    sp.add_argument("--domain", default="", help="主域名")
+    # Asset diff
+    sp = sub.add_parser("diff", help="📊 Asset change tracking: compare two collection results")
+    sp.add_argument("name", help="Target name")
+    sp.add_argument("old_dir", help="Old data directory")
+    sp.add_argument("new_dir", help="New data directory")
+    sp.add_argument("--domain", default="", help="Main domain")
     sp.set_defaults(func=cmd_diff)
 
-    # ICP备案查询
-    sp = sub.add_parser("icp", help="📜 ICP备案查询")
-    sp.add_argument("domain", help="域名")
+    # ICP lookup
+    sp = sub.add_parser("icp", help="📜 Chinese ICP filing lookup")
+    sp.add_argument("domain", help="Domain name")
     sp.set_defaults(func=cmd_icp)
 
-    # Web 面板
-    sp = sub.add_parser("serve", help="🚀 一键启动 Web 面板")
-    sp.add_argument("--host", default="127.0.0.1", help="监听地址（默认 127.0.0.1）")
-    sp.add_argument("--port", type=int, default=8000, help="监听端口（默认 8000）")
-    sp.add_argument("--reload", action="store_true", help="热重载（开发模式）")
+    # Web dashboard
+    sp = sub.add_parser("serve", help="🚀 Start web dashboard")
+    sp.add_argument("--host", default="127.0.0.1", help="Listen address (default: 127.0.0.1)")
+    sp.add_argument("--port", type=int, default=8000, help="Listen port (default: 8000)")
+    sp.add_argument("--reload", action="store_true", help="Hot reload (dev mode)")
     sp.set_defaults(func=cmd_serve)
 
-    # 定时调度
-    sp = sub.add_parser("schedule", help="⏰ 定时自动采集（每日调度）")
-    sp.add_argument("--targets", default="", help="目标列表文件（每行一个目标）")
-    sp.add_argument("--once", action="store_true", help="立即执行一次，不进入定时循环")
-    sp.add_argument("--status", action="store_true", help="查看调度状态")
-    sp.add_argument("--hour", type=int, default=2, help="执行小时（默认 2=凌晨2点）")
-    sp.add_argument("--minute", type=int, default=0, help="执行分钟（默认 0）")
+    # Schedule
+    sp = sub.add_parser("schedule", help="⏰ Scheduled daily auto-collection")
+    sp.add_argument("--targets", default="", help="Target list file (one per line)")
+    sp.add_argument("--once", action="store_true", help="Run once immediately, no loop")
+    sp.add_argument("--status", action="store_true", help="View schedule status")
+    sp.add_argument("--hour", type=int, default=2, help="Execution hour (default: 2=2AM)")
+    sp.add_argument("--minute", type=int, default=0, help="Execution minute (default: 0)")
     sp.set_defaults(func=cmd_schedule)
 
     return p
