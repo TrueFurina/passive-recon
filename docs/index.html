@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Passive Recon — OSINT/EASM/CTEM Platform</title>
+  <meta name="description" content="Purely passive OSINT/EASM/CTEM platform — 15+ data sources, zero-touch asset discovery, risk detection">
+  <meta property="og:title" content="Passive Recon">
+  <meta property="og:description" content="Zero-touch, purely passive external asset discovery platform with 15+ data sources">
+  <meta property="og:url" content="https://truefurina.github.io/passive-recon">
+  <style>
+    :root {
+      --bg: #0d1117;
+      --card: #161b22;
+      --border: #30363d;
+      --text: #c9d1d9;
+      --heading: #f0f6fc;
+      --accent: #58a6ff;
+      --green: #3fb950;
+      --orange: #d29922;
+      --red: #f85149;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+    }
+    .container { max-width: 900px; margin: 0 auto; padding: 0 24px; }
+
+    /* Hero */
+    .hero {
+      padding: 80px 0 60px;
+      text-align: center;
+      border-bottom: 1px solid var(--border);
+    }
+    .hero h1 {
+      font-size: 3rem;
+      color: var(--heading);
+      margin-bottom: 16px;
+    }
+    .hero h1 span { color: var(--accent); }
+    .hero .tagline {
+      font-size: 1.2rem;
+      color: var(--text);
+      max-width: 600px;
+      margin: 0 auto 32px;
+    }
+    .hero .badges { margin-bottom: 24px; }
+    .hero .badges img { height: 22px; margin: 0 4px; }
+    .hero .cmd {
+      display: inline-block;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px 24px;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 0.95rem;
+      color: var(--green);
+      margin-bottom: 20px;
+    }
+    .btn {
+      display: inline-block;
+      padding: 12px 32px;
+      background: var(--accent);
+      color: #fff;
+      text-decoration: none;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 1rem;
+      transition: opacity 0.2s;
+    }
+    .btn:hover { opacity: 0.85; }
+    .btn-outline {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text);
+      margin-left: 12px;
+    }
+    .btn-outline:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* Features */
+    .features {
+      padding: 60px 0;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 20px;
+    }
+    .feature {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 24px;
+      transition: border-color 0.2s;
+    }
+    .feature:hover { border-color: var(--accent); }
+    .feature .icon { font-size: 2rem; margin-bottom: 12px; }
+    .feature h3 { color: var(--heading); margin-bottom: 8px; font-size: 1.1rem; }
+    .feature p { font-size: 0.9rem; color: #8b949e; }
+
+    /* Sources */
+    .sources {
+      padding: 60px 0;
+      border-top: 1px solid var(--border);
+    }
+    .sources h2 { text-align: center; color: var(--heading); margin-bottom: 32px; font-size: 1.8rem; }
+    .source-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 12px;
+    }
+    .source-item {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 12px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.9rem;
+    }
+    .source-item .name { color: var(--heading); }
+    .source-item .free { color: var(--green); font-size: 0.8rem; }
+    .source-item .key { color: var(--orange); font-size: 0.8rem; }
+
+    /* Stats */
+    .stats {
+      padding: 60px 0;
+      text-align: center;
+      border-top: 1px solid var(--border);
+    }
+    .stats .github-btn {
+      display: inline-block;
+      margin-top: 20px;
+    }
+
+    /* Footer */
+    footer {
+      text-align: center;
+      padding: 40px 0;
+      border-top: 1px solid var(--border);
+      color: #8b949e;
+      font-size: 0.9rem;
+    }
+    footer a { color: var(--accent); text-decoration: none; }
+
+    @media (max-width: 600px) {
+      .hero h1 { font-size: 2rem; }
+      .hero .cmd { font-size: 0.8rem; padding: 12px 16px; }
+      .btn { display: block; margin-bottom: 12px; }
+      .btn-outline { margin-left: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="hero">
+    <div class="container">
+      <div class="badges">
+        <img src="https://img.shields.io/github/stars/TrueFurina/passive-recon?style=flat&label=stars" alt="Stars">
+        <img src="https://img.shields.io/github/license/TrueFurina/passive-recon" alt="License">
+        <img src="https://github.com/TrueFurina/passive-recon/actions/workflows/ci.yml/badge.svg" alt="CI">
+        <img src="https://img.shields.io/badge/python-3.11%2B-blue" alt="Python">
+      </div>
+      <h1>🕵️ <span>Passive Recon</span></h1>
+      <p class="tagline">Zero-touch, purely passive external asset discovery.<br>15+ data sources, one command, zero probes sent to your target.</p>
+      <div class="cmd">pip install -r requirements.txt && python cli.py collect "Tsinghua University"</div>
+      <br>
+      <a href="https://github.com/TrueFurina/passive-recon" class="btn">⭐ GitHub</a>
+      <a href="https://github.com/TrueFurina/passive-recon/blob/master/README.md" class="btn btn-outline">📖 Docs</a>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="features">
+      <div class="feature">
+        <div class="icon">🔍</div>
+        <h3>Passive Asset Discovery</h3>
+        <p>15+ cross-validated data sources. Auto domain inference. No probes sent to targets.</p>
+      </div>
+      <div class="feature">
+        <div class="icon">🛡️</div>
+        <h3>Compliance Guardrail</h3>
+        <p>R1 compliance check on every outbound call. Fail-closed. Audit trail for every query.</p>
+      </div>
+      <div class="feature">
+        <div class="icon">🚀</div>
+        <h3>One-Click Dashboard</h3>
+        <p>Built-in FastAPI web panel. <code>python cli.py serve</code> — zero config.</p>
+      </div>
+      <div class="feature">
+        <div class="icon">⏰</div>
+        <h3>Auto Scheduler</h3>
+        <p>Daily scheduled collection. Asset change tracking. Risk alerts.</p>
+      </div>
+      <div class="feature">
+        <div class="icon">🔑</div>
+        <h3>Multi-Key Rotation</h3>
+        <p>Automatic API key rotation when rate-limited. No collection gaps.</p>
+      </div>
+      <div class="feature">
+        <div class="icon">📊</div>
+        <h3>Rich Reporting</h3>
+        <p>Markdown reports, Excel export, IP clustering, risk detection.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="sources">
+    <div class="container">
+      <h2>📡 15 Data Sources</h2>
+      <div class="source-grid">
+        <div class="source-item"><span class="name">crt.sh</span><span class="free">Free</span></div>
+        <div class="source-item"><span class="name">HackerTarget</span><span class="free">Free</span></div>
+        <div class="source-item"><span class="name">URLScan.io</span><span class="free">Free</span></div>
+        <div class="source-item"><span class="name">AlienVault OTX</span><span class="free">Free</span></div>
+        <div class="source-item"><span class="name">Wayback Machine</span><span class="free">Free</span></div>
+        <div class="source-item"><span class="name">DNSDumpster</span><span class="free">Free</span></div>
+        <div class="source-item"><span class="name">CommonCrawl</span><span class="free">Free</span></div>
+        <div class="source-item"><span class="name">GitHub</span><span class="free">Free</span></div>
+        <div class="source-item"><span class="name">Hunter</span><span class="key">API Key</span></div>
+        <div class="source-item"><span class="name">FOFA</span><span class="key">API Key</span></div>
+        <div class="source-item"><span class="name">SecurityTrails</span><span class="key">API Key</span></div>
+        <div class="source-item"><span class="name">Shodan</span><span class="key">API Key</span></div>
+        <div class="source-item"><span class="name">VirusTotal</span><span class="key">API Key</span></div>
+        <div class="source-item"><span class="name">ZoomEye</span><span class="key">API Key</span></div>
+        <div class="source-item"><span class="name">Qichacha</span><span class="key">API Key</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="container">
+      <p style="color:#8b949e;font-size:1.1rem;margin-bottom:8px;">Star us on GitHub to support the project</p>
+      <a class="github-btn" href="https://github.com/TrueFurina/passive-recon">
+        <img src="https://img.shields.io/github/stars/TrueFurina/passive-recon?style=for-the-badge&logo=github&color=58a6ff" alt="Star">
+      </a>
+    </div>
+  </div>
+
+  <footer>
+    <div class="container">
+      <p>Built with ❤️ for the OSINT / EASM / CTEM community</p>
+      <p style="margin-top:8px;">
+        <a href="https://github.com/TrueFurina/passive-recon">GitHub</a> ·
+        <a href="https://github.com/TrueFurina/passive-recon/blob/master/README.md">README</a> ·
+        <a href="https://github.com/TrueFurina/passive-recon/blob/master/README.zh-CN.md">中文版</a>
+      </p>
+    </div>
+  </footer>
+</body>
+</html>
