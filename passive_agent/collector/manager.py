@@ -12,15 +12,22 @@ from typing import Any, Dict, List, Optional
 from passive_agent.collector.domain_db import infer_domain, verify_domain_alive
 from passive_agent.collector.model import AssetRecord, AssetSourceEnum, AssetType, CollectReport
 from passive_agent.collector.sources import (
+    CommonCrawlCollector,
     CrtshCollector,
+    DnsDumpsterCollector,
     FofaCollector,
+    GitHubCollector,
     HackerTargetCollector,
     HunterCollector,
     OTXCollector,
     QichachaCollector,
     ReverseDnsCollector,
     SecurityTrailsCollector,
+    ShodanCollector,
     URLScanCollector,
+    VirusTotalCollector,
+    WaybackCollector,
+    ZoomEyeCollector,
 )
 from passive_agent.common import logging as clog
 from passive_agent.config import settings
@@ -38,6 +45,13 @@ SUPPORTED_SOURCES = {
     "fofa": "FOFA 空间搜索引擎（需email+Key）",
     "reverse_dns": "IP 反查 DNS（免费）",
     "qichacha": "企查查 企业工商信息（需Key）",
+    "wayback": "Wayback Machine 历史存档（免费）",
+    "dnsdumpster": "DNSDumpster DNS 映射（免费）",
+    "shodan": "Shodan 互联网设备搜索（需Key）",
+    "virustotal": "VirusTotal 被动 DNS（需Key）",
+    "github": "GitHub 代码泄露搜索（免费）",
+    "commoncrawl": "CommonCrawl 历史网页数据（免费）",
+    "zoomeye": "ZoomEye 网络空间测绘（需Key）",
 }
 
 
@@ -322,6 +336,13 @@ class CollectorManager:
                 timeout=20, api_key=api_keys.get("fofa", ""))),
             ("qichacha", QichachaCollector(
                 timeout=15, api_key=api_keys.get("qichacha", {}))),
+            ("wayback", WaybackCollector(timeout=30)),
+            ("dnsdumpster", DnsDumpsterCollector(timeout=15)),
+            ("shodan", ShodanCollector(timeout=15, api_key=api_keys.get("shodan", ""))),
+            ("virustotal", VirusTotalCollector(timeout=15, api_key=api_keys.get("virustotal", ""))),
+            ("github", GitHubCollector(timeout=15, api_key=api_keys.get("github", ""))),
+            ("commoncrawl", CommonCrawlCollector(timeout=30)),
+            ("zoomeye", ZoomEyeCollector(timeout=15, api_key=api_keys.get("zoomeye", ""))),
         ]
         if known_ips:
             all_collectors.append(

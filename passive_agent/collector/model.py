@@ -16,7 +16,7 @@ from passive_agent.common.enums import CollectorCluster
 
 
 class AssetSourceEnum(str, Enum):
-    """数据源枚举 — FAFU 实战验证过的真实源 + 企查查工商源。"""
+    """数据源枚举 — 被动信息收集全数据源。"""
     CRTSH = "crt.sh"               # 证书透明日志
     HACKERTARGET = "hackertarget"  # HackerTarget API
     OTX = "otx"                    # AlienVault OTX
@@ -26,6 +26,13 @@ class AssetSourceEnum(str, Enum):
     HUNTER = "hunter"              # 鹰图 Hunter API
     FOFA = "fofa"                  # FOFA 空间搜索引擎
     QICHACHA = "qichacha"          # 企查查 企业工商信息
+    WAYBACK = "wayback"            # Wayback Machine 历史存档
+    DNSDUMPSTER = "dnsdumpster"    # DNSDumpster DNS 映射
+    SHODAN = "shodan"              # Shodan 互联网设备搜索
+    VIRUSTOTAL = "virustotal"      # VirusTotal 威胁情报
+    GITHUB = "github"              # GitHub 代码搜索
+    COMMONCRAWL = "commoncrawl"    # CommonCrawl 网页数据
+    ZOOMEYE = "zoomeye"            # ZoomEye 网络空间测绘
     CUSTOM = "custom"              # 自定义导入
 
 

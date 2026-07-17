@@ -116,6 +116,291 @@ class CrtshCollector(BaseCollector):
         return records
 
 
+class WaybackCollector(BaseCollector):
+    """Wayback Machine — 历史子域名 / URL 存档（免费，免密钥）。"""
+
+    SOURCE = AssetSourceEnum.WAYBACK
+    CDX_URL = "https://web.archive.org/cdx/search/cdx"
+
+    def collect(self, domain: str) -> List[AssetRecord]:
+        _r1_pass(source="wayback")
+        records: List[AssetRecord] = []
+        try:
+            resp = httpx.get(self.CDX_URL, params={
+                "url": f"*.{domain}",
+                "output": "json",
+                "fl": "original,timestamp",
+                "limit": 5000,
+            }, timeout=self.timeout)
+            if resp.status_code != 200:
+                return records
+            data = resp.json()
+            seen: Set[str] = set()
+            for row in data[1:]:  # 第一行是表头
+                if len(row) < 1:
+                    continue
+                url = row[0].strip().lower()
+                from urllib.parse import urlparse
+                parsed = urlparse(url)
+                hostname = parsed.hostname or ""
+                if hostname.endswith(f".{domain}") and hostname not in seen:
+                    seen.add(hostname)
+                    records.append(self._make_record(
+                        hostname, AssetType.SUBDOMAIN,
+                        extra=f"wayback url={url}",
+                        tags=["wayback", "historical"],
+                    ))
+            _logger.info(f"Wayback: {domain} → {len(records)} 子域名")
+        except Exception as e:
+            self._errors.append(f"Wayback 失败: {e}")
+            _logger.warn(f"Wayback 采集异常: {e}")
+        return records
+
+
+class DnsDumpsterCollector(BaseCollector):
+    """DNSDumpster — DNS 映射 / 子域名 / MX/NS 记录（免费，免密钥）。"""
+
+    SOURCE = AssetSourceEnum.DNSDUMPSTER
+    BASE_URL = "https://dnsdumpster.com"
+
+    def collect(self, domain: str) -> List[AssetRecord]:
+        _r1_pass(source="dnsdumpster")
+        records: List[AssetRecord] = []
+        try:
+            # 先获取 CSRF token
+            resp = httpx.get(self.BASE_URL, timeout=self.timeout)
+            if resp.status_code != 200:
+                return records
+            csrf = ""
+            import re
+            m = re.search(r'name="csrfmiddlewaretoken" value="([^"]+)"', resp.text)
+            if m:
+                csrf = m.group(1)
+            cookie = resp.cookies
+
+            # POST 查询
+            resp2 = httpx.post(self.BASE_URL, data={
+                "csrfmiddlewaretoken": csrf,
+                "targetip": domain,
+            }, cookies=cookie, timeout=self.timeout)
+            if resp2.status_code != 200:
+                return records
+
+            # 从 HTML 表格中提取子域名
+            seen: Set[str] = set()
+            # 匹配 DNS 记录表格中的子域名
+            for m in re.finditer(r'<td class="col-domain">([^<]+)</td>', resp2.text):
+                sub = m.group(1).strip().lower()
+                if sub.endswith(f".{domain}") and sub not in seen:
+                    seen.add(sub)
+                    records.append(self._make_record(
+                        sub, AssetType.SUBDOMAIN,
+                        tags=["dnsdumpster"],
+                    ))
+            _logger.info(f"DNSDumpster: {domain} → {len(records)} 子域名")
+        except Exception as e:
+            self._errors.append(f"DNSDumpster 失败: {e}")
+            _logger.warn(f"DNSDumpster 采集异常: {e}")
+        return records
+
+
+class ShodanCollector(BaseCollector):
+    """Shodan — 互联网设备搜索 / 暴露服务发现（需 API Key）。"""
+
+    SOURCE = AssetSourceEnum.SHODAN
+    BASE_URL = "https://api.shodan.io"
+
+    def collect(self, domain: str) -> List[AssetRecord]:
+        _r1_pass(source="shodan")
+        records: List[AssetRecord] = []
+        if not self.api_key:
+            self._errors.append("Shodan: 无 API Key，跳过")
+            _logger.info("Shodan: 无 API Key，跳过")
+            return records
+        try:
+            # 查询域名关联的 IP 和服务
+            resp = httpx.get(f"{self.BASE_URL}/dns/resolve", params={
+                "hostnames": domain,
+                "key": self.api_key,
+            }, timeout=self.timeout)
+            if resp.status_code == 200:
+                data = resp.json()
+                for hostname, ip in data.items():
+                    records.append(self._make_record(
+                        ip, AssetType.IP,
+                        extra=f"shodan hostname={hostname}",
+                        tags=["shodan", "exposed"],
+                    ))
+            _logger.info(f"Shodan: {domain} → {len(records)} IP")
+        except Exception as e:
+            self._errors.append(f"Shodan 失败: {e}")
+            _logger.warn(f"Shodan 采集异常: {e}")
+        return records
+
+
+class VirusTotalCollector(BaseCollector):
+    """VirusTotal — 被动 DNS / 子域名 / 关联域名（需 API Key）。"""
+
+    SOURCE = AssetSourceEnum.VIRUSTOTAL
+    BASE_URL = "https://www.virustotal.com/api/v3"
+
+    def collect(self, domain: str) -> List[AssetRecord]:
+        _r1_pass(source="virustotal")
+        records: List[AssetRecord] = []
+        if not self.api_key:
+            self._errors.append("VirusTotal: 无 API Key，跳过")
+            _logger.info("VirusTotal: 无 API Key，跳过")
+            return records
+        try:
+            resp = httpx.get(f"{self.BASE_URL}/domains/{domain}/subdomains", headers={
+                "x-apikey": self.api_key,
+            }, timeout=self.timeout)
+            if resp.status_code == 200:
+                data = resp.json()
+                for item in data.get("data", []):
+                    sub = item.get("id", "")
+                    if sub.endswith(f".{domain}"):
+                        records.append(self._make_record(
+                            sub, AssetType.SUBDOMAIN,
+                            tags=["virustotal", "passive-dns"],
+                        ))
+            _logger.info(f"VirusTotal: {domain} → {len(records)} 子域名")
+        except Exception as e:
+            self._errors.append(f"VirusTotal 失败: {e}")
+            _logger.warn(f"VirusTotal 采集异常: {e}")
+        return records
+
+
+class GitHubCollector(BaseCollector):
+    """GitHub — 搜索目标域名相关的公开代码泄露（免费 API，有频率限制）。"""
+
+    SOURCE = AssetSourceEnum.GITHUB
+    BASE_URL = "https://api.github.com"
+
+    def collect(self, domain: str) -> List[AssetRecord]:
+        _r1_pass(source="github")
+        records: List[AssetRecord] = []
+        try:
+            # 搜索包含域名的公开代码
+            headers = {"Accept": "application/vnd.github.v3+json"}
+            if self.api_key:
+                headers["Authorization"] = f"Bearer {self.api_key}"
+            resp = httpx.get(f"{self.BASE_URL}/search/code", params={
+                "q": f'"{domain}"',
+                "per_page": 50,
+            }, headers=headers, timeout=self.timeout)
+            if resp.status_code == 200:
+                data = resp.json()
+                for item in data.get("items", [])[:20]:
+                    repo = item.get("repository", {})
+                    repo_name = repo.get("full_name", "unknown")
+                    path = item.get("path", "")
+                    html_url = item.get("html_url", "")
+                    records.append(self._make_record(
+                        f"github:{repo_name}/{path}",
+                        AssetType.UNKNOWN,
+                        extra=f"github url={html_url}",
+                        tags=["github", "code-leak"],
+                    ))
+            _logger.info(f"GitHub: {domain} → {len(records)} 结果")
+        except Exception as e:
+            self._errors.append(f"GitHub 搜索失败: {e}")
+            _logger.warn(f"GitHub 采集异常: {e}")
+        return records
+
+
+class CommonCrawlCollector(BaseCollector):
+    """CommonCrawl — 海量历史网页数据中的子域名/URL（免费，免密钥）。"""
+
+    SOURCE = AssetSourceEnum.COMMONCRAWL
+    INDEX_URL = "https://index.commoncrawl.org/collinfo.json"
+
+    def collect(self, domain: str) -> List[AssetRecord]:
+        _r1_pass(source="commoncrawl")
+        records: List[AssetRecord] = []
+        try:
+            # 获取最新索引
+            resp = httpx.get(self.INDEX_URL, timeout=self.timeout)
+            if resp.status_code != 200:
+                return records
+            indexes = resp.json()
+            if not indexes:
+                return records
+            latest = indexes[0]["id"]
+
+            # 查询域名
+            search_url = f"https://index.commoncrawl.org/{latest}-index"
+            resp2 = httpx.get(search_url, params={
+                "url": f"*.{domain}/*",
+                "output": "json",
+                "limit": 1000,
+            }, timeout=self.timeout)
+            if resp2.status_code != 200:
+                return records
+
+            seen: Set[str] = set()
+            for line in resp2.text.strip().split("\n"):
+                if not line:
+                    continue
+                try:
+                    import json as _json
+                    row = _json.loads(line)
+                    url = row.get("url", "")
+                    from urllib.parse import urlparse
+                    parsed = urlparse(url)
+                    hostname = parsed.hostname or ""
+                    if hostname.endswith(f".{domain}") and hostname not in seen:
+                        seen.add(hostname)
+                        records.append(self._make_record(
+                            hostname, AssetType.SUBDOMAIN,
+                            extra=f"commoncrawl url={url}",
+                            tags=["commoncrawl", "historical"],
+                        ))
+                except Exception:
+                    continue
+            _logger.info(f"CommonCrawl: {domain} → {len(records)} 子域名")
+        except Exception as e:
+            self._errors.append(f"CommonCrawl 失败: {e}")
+            _logger.warn(f"CommonCrawl 采集异常: {e}")
+        return records
+
+
+class ZoomEyeCollector(BaseCollector):
+    """ZoomEye — 网络空间测绘 / 资产发现（需 API Key）。"""
+
+    SOURCE = AssetSourceEnum.ZOOMEYE
+    BASE_URL = "https://api.zoomeye.org"
+
+    def collect(self, domain: str) -> List[AssetRecord]:
+        _r1_pass(source="zoomeye")
+        records: List[AssetRecord] = []
+        if not self.api_key:
+            self._errors.append("ZoomEye: 无 API Key，跳过")
+            _logger.info("ZoomEye: 无 API Key，跳过")
+            return records
+        try:
+            resp = httpx.get(f"{self.BASE_URL}/domain/search", params={
+                "q": domain,
+                "page": 1,
+            }, headers={"API-KEY": self.api_key}, timeout=self.timeout)
+            if resp.status_code == 200:
+                data = resp.json()
+                for item in data.get("list", []):
+                    name = item.get("name", "")
+                    ip = item.get("ip", "")
+                    if name:
+                        records.append(self._make_record(
+                            name, AssetType.SUBDOMAIN,
+                            ip=ip,
+                            tags=["zoomeye"],
+                        ))
+            _logger.info(f"ZoomEye: {domain} → {len(records)} 记录")
+        except Exception as e:
+            self._errors.append(f"ZoomEye 失败: {e}")
+            _logger.warn(f"ZoomEye 采集异常: {e}")
+        return records
+
+
 class HackerTargetCollector(BaseCollector):
     """HackerTarget API — 免费主机/DNS 查询（10次/分钟免费）。"""
 
