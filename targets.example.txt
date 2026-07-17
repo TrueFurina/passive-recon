@@ -1,0 +1,13 @@
+# 定时采集目标列表
+# 格式：每行一个目标，支持 "名称,域名" 或 "名称"（自动推断域名）
+# 注释行以 # 开头
+
+# 高校
+北京大学, pku.edu.cn
+清华大学, tsinghua.edu.cn
+福建农林大学, fafu.edu.cn
+
+# 企业
+阿里巴巴, alibaba.com
+腾讯, tencent.com
+百度, baidu.com

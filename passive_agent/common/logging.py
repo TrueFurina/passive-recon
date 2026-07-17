@@ -2,7 +2,8 @@
 
 字段：ts(UTC) / level / module / trace_id / subject_id / action / source /
 decision / reason_code / msg。
-"""
+
+支持 CLI 静默模式：设置 SUPPRESS_CLI_OUTPUT = True 可临时压制日志输出。"""
 from __future__ import annotations
 
 import json
@@ -11,6 +12,9 @@ from datetime import datetime, timezone
 from typing import Any, Optional
 
 _LOCK = threading.Lock()
+
+# CLI 静默开关：True 时 log_event 不输出到 stdout（用于 collect 命令的干净输出）
+SUPPRESS_CLI_OUTPUT: bool = False
 
 
 def _now() -> str:
@@ -42,8 +46,10 @@ def log_event(
     }
     line = json.dumps(record, ensure_ascii=False)
     # 全链路透传的结构化日志，输出到 stdout（可被采集/重定向到 LOG_PATH）
+    # CLI 静默模式下不输出，避免干扰 collect 命令的人类可读报告
     with _LOCK:
-        print(line, flush=True)
+        if not SUPPRESS_CLI_OUTPUT:
+            print(line, flush=True)
     return record
 
 

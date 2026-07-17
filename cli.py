@@ -127,16 +127,27 @@ def cmd_collect(args) -> None:
         print(f"🌐 自动推断域名: {domain}")
         print()
 
+    # 压制 JSON 日志输出，保证终端输出干净的人类可读报告
+    from passive_agent.common.logging import SUPPRESS_CLI_OUTPUT
+    import passive_agent.common.logging as _clog
+    _clog.SUPPRESS_CLI_OUTPUT = True
+
+    print(f"⏳ 正在采集，请稍候...")
     mgr = CollectorManager()
     report = mgr.collect(name=target, domain=domain, enabled_sources=sources)
+
+    # 恢复日志输出
+    _clog.SUPPRESS_CLI_OUTPUT = False
 
     # 输出报告
     print(report.to_table())
     print(f"\n📊 执行时间: {report.completed_at}")
 
-    if report.errors:
-        print(f"\n⚠️ {len(report.errors)} 个采集错误:")
-        for e in report.errors[:5]:
+    # 修复：将"采集错误"重命名为"风险发现"
+    risk_items = [e for e in report.errors if "🔴" in e or "P0" in e or "P1" in e or "P2" in e]
+    if risk_items:
+        print(f"\n🚨 发现 {len(risk_items)} 个安全风险:")
+        for e in risk_items[:5]:
             print(f"   - {e}")
 
     # 落库
@@ -160,11 +171,23 @@ def cmd_collect(args) -> None:
             print(f"  落库异常: {exc}")
     print(f"💾 已落库 {stored}/{len(report.records)} 条资产到 t_collect_asset")
 
+    # 自动保存 Markdown 报告
+    from pathlib import Path
+    report_dir = Path("data")
+    report_dir.mkdir(exist_ok=True)
+    safe_name = target.replace(" ", "_").replace("/", "_")
+    report_path = report_dir / f"report_{safe_name}_{domain}.md"
+    report_path.write_text(report.to_table(), encoding="utf-8")
+    print(f"📝 报告已保存: {report_path}")
+
     # Excel 导出
     if args.export:
         from passive_agent.collector.model import CollectReport
         mgr.export_to_excel(report, args.export)
         print(f"📁 Excel 已导出: {args.export}")
+
+    # 下一步提示
+    print(f"\n💡 试试：python cli.py inventory-export 导出资产清单")
 
 
 def cmd_import_path(args) -> None:
@@ -304,6 +327,42 @@ def cmd_icp(args) -> None:
         print(f"\n❌ 未查到 {args.domain} 的ICP备案信息")
         print("   (工信部备案系统可能屏蔽了自动化查询)")
         print(f"   手动查询: https://beian.miit.gov.cn/")
+
+
+def cmd_serve(args) -> None:
+    """🚀 一键启动 Web 面板。"""
+    print("🚀 启动 Web 面板...")
+    print(f"   地址: http://{args.host}:{args.port}")
+    print(f"   文档: http://{args.host}:{args.port}/docs")
+    print()
+    import uvicorn
+    uvicorn.run("passive_agent.main:app", host=args.host, port=args.port, reload=args.reload)
+
+
+def cmd_schedule(args) -> None:
+    """⏰ 定时自动采集。"""
+    _ensure()
+    from passive_agent.scheduler import load_targets, run_once, show_status, DailyScheduler
+
+    if args.status:
+        show_status()
+        return
+
+    if not args.targets:
+        print("❌ 请指定目标列表文件：--targets targets.txt")
+        print("   格式：每行一个目标，支持 名称,域名 或 名称（自动推断域名）")
+        return
+
+    targets = load_targets(args.targets)
+    if not targets:
+        print(f"❌ 目标文件为空或格式错误: {args.targets}")
+        return
+
+    if args.once:
+        run_once(targets, verbose=True)
+    else:
+        scheduler = DailyScheduler(targets, hour=args.hour, minute=args.minute)
+        scheduler.start(block=True)
 
 
 def cmd_domain_info(args) -> None:
@@ -527,6 +586,22 @@ def build_parser() -> argparse.ArgumentParser:
     sp = sub.add_parser("icp", help="📜 ICP备案查询")
     sp.add_argument("domain", help="域名")
     sp.set_defaults(func=cmd_icp)
+
+    # Web 面板
+    sp = sub.add_parser("serve", help="🚀 一键启动 Web 面板")
+    sp.add_argument("--host", default="127.0.0.1", help="监听地址（默认 127.0.0.1）")
+    sp.add_argument("--port", type=int, default=8000, help="监听端口（默认 8000）")
+    sp.add_argument("--reload", action="store_true", help="热重载（开发模式）")
+    sp.set_defaults(func=cmd_serve)
+
+    # 定时调度
+    sp = sub.add_parser("schedule", help="⏰ 定时自动采集（每日调度）")
+    sp.add_argument("--targets", default="", help="目标列表文件（每行一个目标）")
+    sp.add_argument("--once", action="store_true", help="立即执行一次，不进入定时循环")
+    sp.add_argument("--status", action="store_true", help="查看调度状态")
+    sp.add_argument("--hour", type=int, default=2, help="执行小时（默认 2=凌晨2点）")
+    sp.add_argument("--minute", type=int, default=0, help="执行分钟（默认 0）")
+    sp.set_defaults(func=cmd_schedule)
 
     return p
 
