@@ -495,6 +495,72 @@ def cmd_qichacha_verify3(args) -> None:
     print(f"\n三要素核验结果: {msg_map.get(v, f'未知({v})')}")
 
 
+def cmd_export(args) -> None:
+    """导出资产数据（JSON / CSV），便于其他工具消费。"""
+    _ensure()
+    from passive_agent.storage import db
+    import json, csv, sys
+    from pathlib import Path
+
+    # 查询资产表
+    rows = db.query(
+        "SELECT enterprise, domain, asset_value, asset_type, source_name, "
+        "ip, port, title, tags FROM t_collect_asset "
+        "ORDER BY id DESC"
+    )
+
+    if not rows:
+        print("📭 暂无资产数据。先运行 `python cli.py collect <target>` 采集。")
+        return
+
+    output = args.output or sys.stdout
+    close = False
+    if isinstance(output, str):
+        output = open(output, "w", encoding="utf-8")
+        close = True
+
+    try:
+        if args.format == "json":
+            assets = []
+            for r in rows:
+                assets.append({
+                    "enterprise": r["enterprise"],
+                    "domain": r["domain"],
+                    "asset": r["asset_value"],
+                    "type": r["asset_type"],
+                    "source": r["source_name"],
+                    "ip": r["ip"],
+                    "port": r["port"],
+                    "title": r["title"],
+                    "tags": r["tags"],
+                })
+            json.dump(assets, output, ensure_ascii=False, indent=2)
+            print(f"✅ 已导出 {len(assets)} 条资产 (JSON)")
+
+        elif args.format == "csv":
+            writer = csv.writer(output)
+            writer.writerow(["enterprise", "domain", "asset", "type", "source", "ip", "port", "title", "tags"])
+            for r in rows:
+                writer.writerow([
+                    r["enterprise"], r["domain"], r["asset_value"],
+                    r["asset_type"], r["source_name"], r["ip"],
+                    r["port"], r["title"], r["tags"],
+                ])
+            print(f"✅ 已导出 {len(rows)} 条资产 (CSV)")
+
+        elif args.format == "markdown":
+            print(f"# 资产导出 ({len(rows)} 条)")
+            print()
+            print(f"| 企业 | 域名 | 资产 | 类型 | 数据源 | IP | 端口 |")
+            print(f"|------|------|------|------|--------|----|------|")
+            for r in rows:
+                print(f"| {r['enterprise']} | {r['domain']} | {r['asset_value']} | {r['asset_type']} | {r['source_name']} | {r['ip'] or ''} | {r['port'] or ''} |")
+
+    finally:
+        if close:
+            output.close()
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="cli.py", description="Passive Recon — Enterprise OSINT/EASM/CTEM CLI")
@@ -602,6 +668,12 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--hour", type=int, default=2, help="Execution hour (default: 2=2AM)")
     sp.add_argument("--minute", type=int, default=0, help="Execution minute (default: 0)")
     sp.set_defaults(func=cmd_schedule)
+
+    # Export
+    sp = sub.add_parser("export", help="📤 Export asset data (JSON/CSV/Markdown) for other tools")
+    sp.add_argument("--format", default="json", choices=["json", "csv", "markdown"], help="Output format (default: json)")
+    sp.add_argument("--output", default="", help="Output file path (default: stdout)")
+    sp.set_defaults(func=cmd_export)
 
     return p
 
