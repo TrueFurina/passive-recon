@@ -189,6 +189,86 @@ def cmd_collect(args) -> None:
     # 下一步提示
     print(f"\n💡 试试：python cli.py inventory-export 导出资产清单")
 
+    # AI 报告生成（有 DeepSeek API Key 时自动调用）
+    _generate_ai_report(report, target, domain)
+
+
+def _generate_ai_report(report, target: str, domain: str) -> None:
+    """调用 DeepSeek API 生成 AI 分析报告。"""
+    import os
+    api_key = os.environ.get("DEEPSEEK_API_KEY", "")
+    if not api_key:
+        # 回退：从 Windows 注册表读取（新进程才能看到 User 环境变量）
+        try:
+            import subprocess
+            r = subprocess.run(
+                ['powershell.exe', '-Command',
+                 '[System.Environment]::GetEnvironmentVariable("DEEPSEEK_API_KEY","User")'],
+                capture_output=True, text=True, timeout=5
+            )
+            api_key = r.stdout.strip()
+        except Exception:
+            pass
+    if not api_key:
+        return  # 无 API Key，静默跳过
+
+    try:
+        # 构建简要摘要
+        type_counts = {}
+        ips = set()
+        for r in report.records:
+            type_counts[r.asset_type.value] = type_counts.get(r.asset_type.value, 0) + 1
+            if r.ip:
+                ips.add(r.ip)
+        risk_items = [e for e in report.errors if "🔴" in e]
+        sources = ", ".join(report.sources_used)
+
+        prompt = f"""你是一个网络安全专家。请分析以下被动资产收集结果，输出一段简短的中文分析（200字以内），包含：
+1. 资产概况：总资产数、子域名数、IP数
+2. 主要风险：列出最严重的风险
+3. 建议：下一步应该关注什么
+
+目标：{target}
+域名：{domain}
+数据源：{sources}
+资产类型分布：{type_counts}
+IP数：{len(ips)}
+风险发现：{risk_items[:5] if risk_items else '无'}"""
+
+        import httpx
+        resp = httpx.post(
+            "https://api.deepseek.com/chat/completions",
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "model": "deepseek-chat",
+                "messages": [{"role": "user", "content": prompt}],
+                "max_tokens": 500,
+                "temperature": 0.3,
+            },
+            timeout=30,
+        )
+        if resp.status_code == 200:
+            result = resp.json()
+            text = result["choices"][0]["message"]["content"]
+            print(f"\n🤖 AI 分析报告\n{'='*40}")
+            print(text)
+            # 追加到已保存的报告文件
+            from pathlib import Path
+            safe_name = target.replace(" ", "_").replace("/", "_")
+            report_path = Path("data") / f"report_{safe_name}_{domain}.md"
+            if report_path.exists():
+                existing = report_path.read_text(encoding="utf-8")
+                report_path.write_text(
+                    existing + f"\n## 🤖 AI 分析报告\n\n{text}\n",
+                    encoding="utf-8",
+                )
+    except Exception as exc:
+        # AI 报告失败不影响主流程，静默忽略
+        pass
+
 
 def cmd_import_path(args) -> None:
     """从已有资产目录/文件导入种子数据（通用版，不限 FAFU）。"""
