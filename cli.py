@@ -641,6 +641,14 @@ def cmd_export(args) -> None:
             output.close()
 
 
+def cmd_ask(args) -> None:
+    """🤖 AI 对话查询 — 用自然语言查询资产数据库。"""
+    _ensure()
+    from passive_agent.ai.chat import ask
+    result = ask(args.query, limit=args.limit)
+    print(result)
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="cli.py", description="Passive Recon — Enterprise OSINT/EASM/CTEM CLI")
@@ -754,6 +762,12 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--format", default="json", choices=["json", "csv", "markdown"], help="Output format (default: json)")
     sp.add_argument("--output", default="", help="Output file path (default: stdout)")
     sp.set_defaults(func=cmd_export)
+
+    # AI Ask
+    sp = sub.add_parser("ask", help="🤖 AI query: ask natural language questions about your asset database")
+    sp.add_argument("query", help="Your question, e.g. 'What VPNs does Peking University have?'")
+    sp.add_argument("--limit", type=int, default=20, help="Max results (default: 20)")
+    sp.set_defaults(func=cmd_ask)
 
     return p
 
