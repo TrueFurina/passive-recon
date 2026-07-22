@@ -113,7 +113,7 @@ def cmd_inventory_export(args) -> None:
 def cmd_collect(args) -> None:
     """一通百通：任意目标 → 自动推断域名 → 全源采集。"""
     _ensure()
-    from passive_agent.collector.domain_db import infer_domain, list_known_universities, list_known_enterprises
+    from passive_agent.ai.domain_infer import infer_domain
     from passive_agent.collector.manager import CollectorManager
 
     target = args.name
@@ -149,6 +149,22 @@ def cmd_collect(args) -> None:
         print(f"\n🚨 发现 {len(risk_items)} 个安全风险:")
         for e in risk_items[:5]:
             print(f"   - {e}")
+
+    # AI 风险评分（异步，不影响主流程）
+    if risk_items and not args.no_ai:
+        try:
+            from passive_agent.ai.risk_scorer import score_risks
+            print(f"\n🤖 AI 正在分析风险...")
+            scored = score_risks(risk_items, domain)
+            if scored:
+                print(f"\n📊 AI 风险评分（按严重程度排序）:")
+                for risk, score, advice in scored[:5]:
+                    bar = "█" * (score // 10) + "░" * (10 - score // 10)
+                    print(f"  {bar} {score:3d}分 {risk}")
+                    if advice:
+                        print(f"        💡 {advice}")
+        except Exception:
+            pass  # AI 失败不影响主流程
 
     # 落库
     stored = 0
@@ -194,21 +210,9 @@ def cmd_collect(args) -> None:
 
 
 def _generate_ai_report(report, target: str, domain: str) -> None:
-    """调用 DeepSeek API 生成 AI 分析报告。"""
-    import os
-    api_key = os.environ.get("DEEPSEEK_API_KEY", "")
-    if not api_key:
-        # 回退：从 Windows 注册表读取（新进程才能看到 User 环境变量）
-        try:
-            import subprocess
-            r = subprocess.run(
-                ['powershell.exe', '-Command',
-                 '[System.Environment]::GetEnvironmentVariable("DEEPSEEK_API_KEY","User")'],
-                capture_output=True, text=True, timeout=5
-            )
-            api_key = r.stdout.strip()
-        except Exception:
-            pass
+    """调用 DeepSeek API 生成 AI 分析报告（复用 ai/client 模块）。"""
+    from passive_agent.ai.client import get_api_key, ai_chat
+    api_key = get_api_key()
     if not api_key:
         return  # 无 API Key，静默跳过
 
@@ -235,24 +239,12 @@ def _generate_ai_report(report, target: str, domain: str) -> None:
 IP数：{len(ips)}
 风险发现：{risk_items[:5] if risk_items else '无'}"""
 
-        import httpx
-        resp = httpx.post(
-            "https://api.deepseek.com/chat/completions",
-            headers={
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json",
-            },
-            json={
-                "model": "deepseek-chat",
-                "messages": [{"role": "user", "content": prompt}],
-                "max_tokens": 500,
-                "temperature": 0.3,
-            },
-            timeout=30,
+        text = ai_chat(
+            [{"role": "user", "content": prompt}],
+            max_tokens=500,
+            temperature=0.3,
         )
-        if resp.status_code == 200:
-            result = resp.json()
-            text = result["choices"][0]["message"]["content"]
+        if text:
             print(f"\n🤖 AI 分析报告\n{'='*40}")
             print(text)
             # 追加到已保存的报告文件
@@ -265,9 +257,8 @@ IP数：{len(ips)}
                     existing + f"\n## 🤖 AI 分析报告\n\n{text}\n",
                     encoding="utf-8",
                 )
-    except Exception as exc:
-        # AI 报告失败不影响主流程，静默忽略
-        pass
+    except Exception:
+        pass  # AI 报告失败不影响主流程
 
 
 def cmd_import_path(args) -> None:
@@ -304,7 +295,7 @@ def cmd_import_path(args) -> None:
 def cmd_batch(args) -> None:
     """批量采集：文件每行一个目标，自动并行执行。"""
     _ensure()
-    from passive_agent.collector.domain_db import infer_domain
+    from passive_agent.ai.domain_infer import infer_domain
     from passive_agent.collector.manager import CollectorManager
 
     with open(args.file, "r", encoding="utf-8") as fh:
@@ -684,6 +675,7 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--domain", default="", help="Main domain (optional, auto-inferred if omitted)")
     sp.add_argument("--sources", default="", help="Comma-separated sources, default all (crt.sh,hackertarget,otx,urlscan,hunter,...)")
     sp.add_argument("--export", default="", help="Export Excel report path (e.g. report.xlsx)")
+    sp.add_argument("--no-ai", action="store_true", help="Skip AI analysis (faster, no API call)")
     sp.set_defaults(func=cmd_collect)
 
     # Batch mode

@@ -44,6 +44,46 @@ The system auto-infers the target domain, runs all 15 sources in parallel, and p
 | **Web Dashboard** | `python cli.py serve` — one-click panel |
 | **Scheduled Tasks** | `python cli.py schedule --targets targets.txt` — daily auto-collection |
 | **Auto-save Reports** | Markdown report saved to `data/report_<target>_<domain>.md` |
+| **🤖 AI Domain Inference** | DeepSeek-powered domain inference for any target (no lookup table needed) |
+| **🤖 AI Risk Scoring** | Automatic risk scoring (0-100) with false positive filtering |
+| **🤖 AI Report Summary** | Auto-generated analysis report after each collection |
+| **🤖 AI Chat Query** | `python cli.py ask "What VPNs does Tsinghua have?"` — natural language asset search |
+
+---
+
+## 🤖 AI Features
+
+Passive Recon integrates with **DeepSeek** (no additional cost, free tier available) to provide AI-powered enhancements:
+
+| Feature | Command | Description |
+|---------|---------|-------------|
+| **AI Domain Inference** | `python cli.py collect "any target"` | Auto-infers domain for any target via AI, not just lookup table entries |
+| **AI Risk Scoring** | `python cli.py collect "target"` | Scores each risk 0-100, filters false positives, suggests fixes |
+| **AI Report Summary** | `python cli.py collect "target"` | Generates a natural language analysis report after collection |
+| **AI Chat Query** | `python cli.py ask "question"` | Ask natural language questions about your asset database |
+
+**Examples:**
+```bash
+# AI domain inference works for any target, not just known ones
+python cli.py collect "任意一个不知名的公司"
+
+# AI risk scoring with severity visualization
+python cli.py collect "Tsinghua University"
+# Output: ████████ 85分 [P1] VPN 入口暴露: vpn.tsinghua.edu.cn
+#               💡 建议限制VPN入口IP白名单，启用MFA
+
+# AI chat query — ask questions in natural language
+python cli.py ask "What VPNs does Tsinghua University have?"
+python cli.py ask "List all discovered mail servers"
+python cli.py ask "What are the most critical risks?"
+```
+
+**To skip AI processing (faster, no API call):**
+```bash
+python cli.py collect "target" --no-ai
+```
+
+**Environment variable:** Set `DEEPSEEK_API_KEY` (already configured if you have it) to enable AI features. The free DeepSeek tier is sufficient for personal use.
 
 ---
 
