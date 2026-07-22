@@ -35,31 +35,35 @@ def list_assets(
     offset: int = Query(0, description="Offset for pagination"),
 ):
     """列出资产，支持筛选和分页。"""
-    conditions = []
+    clauses = []
     params = []
 
-    if enterprise:
-        conditions.append("enterprise = ?")
-        params.append(enterprise)
-    if asset_type:
-        conditions.append("asset_type = ?")
-        params.append(asset_type)
-    if source:
-        conditions.append("source_name = ?")
-        params.append(source)
+    filters = [
+        (enterprise, "enterprise = ?", [enterprise]),
+        (asset_type, "asset_type = ?", [asset_type]),
+        (source, "source_name = ?", [source]),
+    ]
+    for val, clause, vals in filters:
+        if val:
+            clauses.append(clause)
+            params.extend(vals)
+
     if search:
-        conditions.append("(asset_value LIKE ? OR title LIKE ? OR ip LIKE ?)")
         like = f"%{search}%"
+        clauses.append("(asset_value LIKE ? OR title LIKE ? OR ip LIKE ?)")
         params.extend([like, like, like])
 
-    where = " AND ".join(conditions) if conditions else "1=1"
-    sql = f"SELECT * FROM t_collect_asset WHERE {where} ORDER BY id DESC LIMIT ? OFFSET ?"
-    params.extend([limit, offset])
-    rows = db.query(sql, tuple(params))
+    where = " AND ".join(clauses) if clauses else "1=1"
+    full_params = params + [limit, offset]
 
-    # 获取总数
-    count_sql = f"SELECT COUNT(*) as cnt FROM t_collect_asset WHERE {where}"
-    total = db.query(count_sql, tuple(params[:-2]))[0]["cnt"]
+    rows = db.query(
+        f"SELECT * FROM t_collect_asset WHERE {where} ORDER BY id DESC LIMIT ? OFFSET ?",
+        tuple(full_params),
+    )
+    total = db.query(
+        f"SELECT COUNT(*) as cnt FROM t_collect_asset WHERE {where}",
+        tuple(params),
+    )[0]["cnt"]
 
     return ok({
         "total": total,
@@ -80,17 +84,4 @@ def list_enterprises():
     )
     return ok({
         "enterprises": [dict(r) for r in rows],
-    })
-
-
-@router.get("/assets/risk-summary")
-def risk_summary():
-    """风险汇总。"""
-    rows = db.query(
-        "SELECT enterprise, asset_value, ip, source_name, title "
-        "FROM t_collect_asset WHERE tags LIKE '%risk%' OR tags LIKE '%P1%' "
-        "ORDER BY id DESC LIMIT 50"
-    )
-    return ok({
-        "risks": [dict(r) for r in rows],
     })

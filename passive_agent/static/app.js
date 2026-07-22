@@ -133,8 +133,8 @@ function switchPage(name, el) {
   document.getElementById("page-" + name).classList.add("active");
   document.querySelectorAll("header nav a").forEach(a => a.classList.remove("active"));
   if (el) el.classList.add("active");
-  if (name === "assets") { loadEnterprises(); loadSources(); loadAssets(); }
-  if (name === "risks") { loadRiskEnterprises(); loadRisks(); }
+  if (name === "assets") { loadEnterprises(); loadAssetSources(); loadAssets(); }
+  if (name === "risks") { loadEnterprises(); loadRisks(); }
 }
 window.switchPage = switchPage;
 
@@ -146,48 +146,46 @@ function debounceLoad() {
 }
 window.debounceLoad = debounceLoad;
 
+/** 填充下拉框的通用函数 */
+function _populateSelect(selectId, items, valueKey, labelKey, selectedValue, showCount) {
+  const sel = document.getElementById(selectId);
+  if (!sel) return;
+  sel.innerHTML = '<option value="">全部</option>';
+  (items || []).forEach(item => {
+    const opt = document.createElement("option");
+    opt.value = item[valueKey];
+    const label = showCount ? `${item[labelKey]} (${item.count})` : item[labelKey];
+    opt.textContent = label;
+    if (opt.value === selectedValue) opt.selected = true;
+    sel.appendChild(opt);
+  });
+}
+
 async function loadEnterprises() {
   try {
     const res = await api("/assets/enterprises").then(r => r.json());
-    const sel = $("filterEnterprise");
-    const cur = sel.value;
-    sel.innerHTML = '<option value="">所有企业</option>';
-    (res.data.enterprises || []).forEach(e => {
-      const opt = document.createElement("option");
-      opt.value = e.enterprise;
-      opt.textContent = `${e.enterprise} (${e.count})`;
-      if (opt.value === cur) opt.selected = true;
-      sel.appendChild(opt);
-    });
-    // 同步风险页
-    const riskSel = $("riskEnterprise");
-    riskSel.innerHTML = '<option value="">所有企业</option>';
-    (res.data.enterprises || []).forEach(e => {
-      const opt = document.createElement("option");
-      opt.value = e.enterprise;
-      opt.textContent = e.enterprise;
-      riskSel.appendChild(opt);
-    });
+    const list = res.data.enterprises || [];
+    _populateSelect("filterEnterprise", list, "enterprise", "enterprise",
+      document.getElementById("filterEnterprise").value, true);
+    _populateSelect("riskEnterprise", list, "enterprise", "enterprise",
+      document.getElementById("riskEnterprise").value, false);
   } catch (e) { console.log("loadEnterprises:", e.message); }
 }
 
-async function loadSources() {
+async function loadAssetSources() {
   try {
     const res = await api("/assets/list?limit=1").then(r => r.json());
-    const sel = $("filterSource");
-    // 从已有数据中提取来源
     const sources = new Set();
     if (res.data && res.data.assets) {
       res.data.assets.forEach(a => { if (a.source_name) sources.add(a.source_name); });
     }
-    sel.innerHTML = '<option value="">所有数据源</option>';
+    const sel = document.getElementById("filterSource");
+    sel.innerHTML = '<option value="">全部</option>';
     sources.forEach(s => {
       const opt = document.createElement("option");
-      opt.value = s;
-      opt.textContent = s;
-      sel.appendChild(opt);
+      opt.value = s; opt.textContent = s; sel.appendChild(opt);
     });
-  } catch (e) { console.log("loadSources:", e.message); }
+  } catch (e) { console.log("loadAssetSources:", e.message); }
 }
 
 let _assetPage = 0;
