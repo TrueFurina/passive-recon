@@ -127,6 +127,169 @@ window.decide = decide;
 window.runCompany = runCompany;
 window.refresh = refresh;
 
+// ===== 页面切换 =====
+function switchPage(name, el) {
+  document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
+  document.getElementById("page-" + name).classList.add("active");
+  document.querySelectorAll("header nav a").forEach(a => a.classList.remove("active"));
+  if (el) el.classList.add("active");
+  if (name === "assets") { loadEnterprises(); loadSources(); loadAssets(); }
+  if (name === "risks") { loadRiskEnterprises(); loadRisks(); }
+}
+window.switchPage = switchPage;
+
+// ===== 资产浏览 =====
+let _debounceTimer = null;
+function debounceLoad() {
+  clearTimeout(_debounceTimer);
+  _debounceTimer = setTimeout(() => loadAssets(), 400);
+}
+window.debounceLoad = debounceLoad;
+
+async function loadEnterprises() {
+  try {
+    const res = await api("/assets/enterprises").then(r => r.json());
+    const sel = $("filterEnterprise");
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">所有企业</option>';
+    (res.data.enterprises || []).forEach(e => {
+      const opt = document.createElement("option");
+      opt.value = e.enterprise;
+      opt.textContent = `${e.enterprise} (${e.count})`;
+      if (opt.value === cur) opt.selected = true;
+      sel.appendChild(opt);
+    });
+    // 同步风险页
+    const riskSel = $("riskEnterprise");
+    riskSel.innerHTML = '<option value="">所有企业</option>';
+    (res.data.enterprises || []).forEach(e => {
+      const opt = document.createElement("option");
+      opt.value = e.enterprise;
+      opt.textContent = e.enterprise;
+      riskSel.appendChild(opt);
+    });
+  } catch (e) { console.log("loadEnterprises:", e.message); }
+}
+
+async function loadSources() {
+  try {
+    const res = await api("/assets/list?limit=1").then(r => r.json());
+    const sel = $("filterSource");
+    // 从已有数据中提取来源
+    const sources = new Set();
+    if (res.data && res.data.assets) {
+      res.data.assets.forEach(a => { if (a.source_name) sources.add(a.source_name); });
+    }
+    sel.innerHTML = '<option value="">所有数据源</option>';
+    sources.forEach(s => {
+      const opt = document.createElement("option");
+      opt.value = s;
+      opt.textContent = s;
+      sel.appendChild(opt);
+    });
+  } catch (e) { console.log("loadSources:", e.message); }
+}
+
+let _assetPage = 0;
+const _assetLimit = 50;
+
+async function loadAssets() {
+  try {
+    const enterprise = $("filterEnterprise").value;
+    const type = $("filterType").value;
+    const source = $("filterSource").value;
+    const search = $("searchAsset").value.trim();
+    const params = new URLSearchParams({ limit: _assetLimit, offset: _assetPage * _assetLimit });
+    if (enterprise) params.set("enterprise", enterprise);
+    if (type) params.set("asset_type", type);
+    if (source) params.set("source", source);
+    if (search) params.set("search", search);
+
+    const res = await api("/assets/list?" + params.toString()).then(r => r.json());
+    const data = res.data || {};
+    const assets = data.assets || [];
+    const total = data.total || 0;
+
+    $("assetCount").textContent = `共 ${total} 条资产 (显示 ${_assetPage * _assetLimit + 1}-${Math.min((_assetPage + 1) * _assetLimit, total)})`;
+
+    const tb = $("assetTbl").querySelector("tbody");
+    tb.innerHTML = "";
+    assets.forEach(a => {
+      const tr = document.createElement("tr");
+      const typeBadge = a.asset_type === "subdomain" ? "badge subdomain"
+        : a.asset_type === "ip" ? "badge ip"
+        : a.asset_type === "port" ? "badge port"
+        : a.asset_type === "organization" ? "badge org" : "";
+      tr.innerHTML =
+        `<td>${a.asset_value || "—"}</td>` +
+        `<td>${typeBadge ? `<span class="${typeBadge}">${a.asset_type}</span>` : a.asset_type || "—"}</td>` +
+        `<td>${a.enterprise || "—"}</td>` +
+        `<td>${a.ip || "—"}</td>` +
+        `<td>${a.port || "—"}</td>` +
+        `<td>${a.source_name || "—"}</td>`;
+      tb.appendChild(tr);
+    });
+
+    // 分页
+    const pag = $("assetPagination");
+    const totalPages = Math.ceil(total / _assetLimit);
+    pag.innerHTML = `
+      <button class="sec" onclick="prevPage()" ${_assetPage === 0 ? "disabled" : ""}>← 上一页</button>
+      <span>第 ${_assetPage + 1}/${totalPages} 页</span>
+      <button class="sec" onclick="nextPage()" ${_assetPage >= totalPages - 1 ? "disabled" : ""}>下一页 →</button>
+    `;
+  } catch (e) { console.log("loadAssets:", e.message); }
+}
+
+function prevPage() { if (_assetPage > 0) { _assetPage--; loadAssets(); } }
+function nextPage() { _assetPage++; loadAssets(); }
+window.prevPage = prevPage;
+window.nextPage = nextPage;
+
+// ===== 风险页 =====
+async function loadRiskEnterprises() {
+  try {
+    const res = await api("/assets/enterprises").then(r => r.json());
+    const sel = $("riskEnterprise");
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">所有企业</option>';
+    (res.data.enterprises || []).forEach(e => {
+      const opt = document.createElement("option");
+      opt.value = e.enterprise;
+      opt.textContent = e.enterprise;
+      if (opt.value === cur) opt.selected = true;
+      sel.appendChild(opt);
+    });
+  } catch (e) { console.log("loadRiskEnterprises:", e.message); }
+}
+
+async function loadRisks() {
+  try {
+    const enterprise = $("riskEnterprise").value;
+    const params = new URLSearchParams();
+    if (enterprise) params.set("enterprise", enterprise);
+    // 从资产列表查询风险
+    params.set("search", "risk");
+    params.set("limit", "100");
+    const res = await api("/assets/list?" + params.toString()).then(r => r.json());
+    const assets = (res.data && res.data.assets) || [];
+
+    const tb = $("riskTbl").querySelector("tbody");
+    tb.innerHTML = "";
+    assets.forEach(a => {
+      const tr = document.createElement("tr");
+      tr.innerHTML =
+        `<td>${a.enterprise || "—"}</td>` +
+        `<td>${a.asset_value || "—"}</td>` +
+        `<td>${a.ip || "—"}</td>` +
+        `<td>${a.source_name || "—"}</td>` +
+        `<td>${a.title || "—"}</td>`;
+      tb.appendChild(tr);
+    });
+  } catch (e) { console.log("loadRisks:", e.message); }
+}
+window.loadRisks = loadRisks;
+
 // ===== P1 新增：M5/M6 渲染 + 5min 自动刷新 =====
 
 async function loadMetrics() {
