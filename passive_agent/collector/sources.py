@@ -571,18 +571,20 @@ class HunterCollector(BaseCollector):
 
     SOURCE = AssetSourceEnum.HUNTER
     BASE_URL = "https://hunter.qianxin.com/openApi/search"
-    _key_index = 0  # 类级别轮询指针
 
     def __init__(self, timeout: float = 20.0, api_key: str = ""):
         super().__init__(timeout, api_key)
-        self._keys: list = []
+        keys: list = []
         if isinstance(api_key, list):
-            self._keys = [k for k in api_key if k]
+            keys = [k for k in api_key if k]
         elif isinstance(api_key, str) and api_key:
-            self._keys = [api_key]
+            keys = [api_key]
+        # 使用统一的多 Key 管理器
+        from passive_agent.collector.key_manager import get_manager
+        self._km = get_manager("hunter", keys)
 
     def is_available(self) -> bool:
-        return len(self._keys) > 0
+        return self._km.total_count > 0
 
     @staticmethod
     def _base64_encode_search(query: str) -> str:
@@ -594,7 +596,7 @@ class HunterCollector(BaseCollector):
         """Hunter API 全量采集 — 自动迭代所有页面直到拉完或 Key 耗尽。"""
         _r1_pass(source="hunter")
         all_records: List[AssetRecord] = []
-        if not self._keys:
+        if not self._km or self._km.total_count == 0:
             _logger.info("Hunter: 无 API Key，跳过")
             return all_records
 
@@ -602,9 +604,9 @@ class HunterCollector(BaseCollector):
         encoded_search = self._base64_encode_search(search_query)
 
         tried_keys = []
-        for _ in range(len(self._keys)):
-            key = self._next_key()
-            if key in tried_keys:
+        for _ in range(self._km.total_count):
+            key = self._km.get_key()
+            if not key or key in tried_keys:
                 break
             tried_keys.append(key)
 
@@ -612,8 +614,9 @@ class HunterCollector(BaseCollector):
             total = 0
             records_this_key = 0
             consecutive_errors = 0
+            key_ok = True
 
-            while True:
+            while key_ok:
                 try:
                     params = {
                         "api-key": key,
@@ -626,9 +629,11 @@ class HunterCollector(BaseCollector):
 
                     if resp.status_code in (429, 403):
                         _logger.warn(f"Hunter Key 限频/封禁 page={page}，切换下一个 Key")
+                        self._km.report_failure(key, is_rate_limit=True)
                         break
                     if resp.status_code != 200:
                         self._errors.append(f"Hunter HTTP {resp.status_code}")
+                        self._km.report_failure(key)
                         break
 
                     data = resp.json()
@@ -636,6 +641,7 @@ class HunterCollector(BaseCollector):
                         _logger.warn(f"Hunter Key 返回 code={data.get('code')} page={page}")
                         consecutive_errors += 1
                         if consecutive_errors >= 3:
+                            self._km.report_failure(key)
                             break
                         page += 1
                         continue
@@ -677,13 +683,13 @@ class HunterCollector(BaseCollector):
                     _logger.warn(f"Hunter page={page} 异常: {e}")
                     consecutive_errors += 1
                     if consecutive_errors >= 3:
+                        self._km.report_failure(key)
                         break
                     page += 1
                     continue
 
+            self._km.report_success(key)
             _logger.info(f"Hunter Key 完成: {records_this_key}/{total} 条，切换下一个 Key 继续")
-            # 在这个 Key 完成后，用下一个 Key 继续翻页
-            continue
 
         # 去重（多 Key 间可能有重叠）
         seen = set()
@@ -694,14 +700,6 @@ class HunterCollector(BaseCollector):
                 unique.append(r)
         _logger.info(f"Hunter 最终: {domain} -> {len(unique)} 去重资产 (原始 {len(all_records)})")
         return unique
-
-    def _next_key(self) -> str:
-        """轮询取下一个 Key。"""
-        if not self._keys:
-            return ""
-        idx = self.__class__._key_index % len(self._keys)
-        self.__class__._key_index = (self.__class__._key_index + 1) % len(self._keys)
-        return self._keys[idx]
 
 
 class ReverseDnsCollector(BaseCollector):
