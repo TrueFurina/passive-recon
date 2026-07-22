@@ -166,6 +166,19 @@ def cmd_collect(args) -> None:
         except Exception:
             pass  # AI 失败不影响主流程
 
+    # AI 资产分类（对子域名进行细粒度分类和技术栈识别）
+    if not args.no_ai:
+        try:
+            from passive_agent.ai.enricher import enrich_assets
+            domain_records = [r for r in report.records
+                              if r.asset_type.value in ("subdomain", "domain")]
+            if domain_records:
+                print(f"\n🤖 AI 正在分析资产分类...")
+                enrich_assets(domain_records)
+                print(f"   ✅ 已分类 {len(domain_records)} 条资产")
+        except Exception:
+            pass  # AI 失败不影响主流程
+
     # 落库
     stored = 0
     for r in report.records:
