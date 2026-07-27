@@ -401,6 +401,55 @@ class ZoomEyeCollector(BaseCollector):
         return records
 
 
+class NvdCollector(BaseCollector):
+    """NVD/CVE — 漏洞情报采集（免费，免密钥）。根据技术栈关键词查询最近漏洞。"""
+
+    SOURCE = AssetSourceEnum.NVD
+    BASE_URL = "https://services.nvd.nist.gov/rest/json/cves/2.0"
+
+    def collect(self, domain: str, tech_stacks: Optional[List[str]] = None) -> List[AssetRecord]:
+        _r1_pass(source="nvd")
+        records: List[AssetRecord] = []
+        keywords = tech_stacks or []
+
+        for keyword in keywords:
+            try:
+                resp = httpx.get(self.BASE_URL, params={
+                    "keywordSearch": keyword,
+                    "resultsPerPage": 10,
+                }, timeout=self.timeout, headers={"User-Agent": "Mozilla/5.0"})
+                if resp.status_code != 200:
+                    continue
+                data = resp.json()
+                for vuln in data.get("vulnerabilities", []):
+                    cve = vuln.get("cve", {})
+                    cve_id = cve.get("id", "")
+                    metrics = cve.get("metrics", {})
+                    score = ""
+                    for key in ["cvssMetricV31", "cvssMetricV30", "cvssMetricV2"]:
+                        if metrics.get(key):
+                            score = str(metrics[key][0].get("cvssData", {}).get("baseScore", ""))
+                            break
+                    descriptions = cve.get("descriptions", [])
+                    desc = ""
+                    for d in descriptions:
+                        if d.get("lang") == "en":
+                            desc = d.get("value", "")[:200]
+                            break
+                    if cve_id:
+                        records.append(AssetRecord(
+                            value=cve_id, asset_type=AssetType.VULNERABILITY,
+                            source=self.SOURCE,
+                            ip=keyword, title=desc,
+                            tags=["cve", f"score:{score}", keyword],
+                        ))
+                _logger.info(f"NVD: {keyword} → {len([r for r in records if keyword in r.tags])} CVE")
+            except Exception as e:
+                self._errors.append(f"NVD 查询失败({keyword}): {e}")
+                _logger.warn(f"NVD 采集异常: {e}")
+        return records
+
+
 class HackerTargetCollector(BaseCollector):
     """HackerTarget API — 免费主机/DNS 查询（10次/分钟免费）。"""
 

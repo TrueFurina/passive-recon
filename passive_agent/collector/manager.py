@@ -19,6 +19,7 @@ from passive_agent.collector.sources import (
     GitHubCollector,
     HackerTargetCollector,
     HunterCollector,
+    NvdCollector,
     OTXCollector,
     QichachaCollector,
     ReverseDnsCollector,
@@ -52,6 +53,7 @@ SUPPORTED_SOURCES = {
     "github": "GitHub 代码泄露搜索（免费）",
     "commoncrawl": "CommonCrawl 历史网页数据（免费）",
     "zoomeye": "ZoomEye 网络空间测绘（需Key）",
+    "nvd": "NVD/CVE 漏洞情报（免费）",
 }
 
 
@@ -130,10 +132,15 @@ class CollectorManager:
                 else:
                     _logger.info(f"  [{source_name}] → {len(records)} 条")
 
-        # 去重 + IP 补全 + 风险检测
+        # 去重 + IP 补全 + 风险检测 + 漏洞关联
         self._dedup(report)
         self._enrich_ips(report)
         self._detect_risks(report)
+        try:
+            from passive_agent.collector.vuln_matcher import match_vulnerabilities
+            match_vulnerabilities(report)
+        except Exception:
+            pass  # 漏洞关联失败不影响主流程
         report.total_records = len(report.records)
         report.completed_at = datetime.now(timezone.utc).isoformat()
 
@@ -343,6 +350,7 @@ class CollectorManager:
             ("github", GitHubCollector(timeout=15, api_key=api_keys.get("github", ""))),
             ("commoncrawl", CommonCrawlCollector(timeout=30)),
             ("zoomeye", ZoomEyeCollector(timeout=15, api_key=api_keys.get("zoomeye", ""))),
+            ("nvd", NvdCollector(timeout=20)),
         ]
         if known_ips:
             all_collectors.append(

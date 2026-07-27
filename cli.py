@@ -640,6 +640,34 @@ def cmd_export(args) -> None:
             for r in rows:
                 print(f"| {r['enterprise']} | {r['domain']} | {r['asset_value']} | {r['asset_type']} | {r['source_name']} | {r['ip'] or ''} | {r['port'] or ''} |")
 
+        elif args.format == "nuclei":
+            print("# Nuclei 检测模板 — 由 Passive Recon 自动生成")
+            print("# 用法: nuclei -t cves.yaml -l targets.txt")
+            print("id: passive-recon-cve-check")
+            print("")
+            templates = {}
+            for r in rows:
+                tags = r["tags"] or ""
+                if "cve" in tags and r["asset_value"].startswith("CVE-"):
+                    cve_id = r["asset_value"]
+                    tech = r["ip"] or "unknown"
+                    if tech not in templates:
+                        templates[tech] = []
+                    templates[tech].append(cve_id)
+            for tech, cves in templates.items():
+                print(f"  - name: {tech}-cve-check")
+                print(f"    requests:")
+                print(f"      - method: GET")
+                print(f"        path:")
+                print(f"          - \"{{BaseURL}}\"")
+                print(f"        matchers:")
+                print(f"          - type: word")
+                print(f"            words:")
+                for cve in cves[:5]:
+                    print(f"              - \"{cve}\"")
+                print(f"    description: \"{', '.join(cves[:3])}\"")
+                print()
+
     finally:
         if close:
             output.close()

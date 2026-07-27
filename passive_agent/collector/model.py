@@ -33,6 +33,7 @@ class AssetSourceEnum(str, Enum):
     GITHUB = "github"              # GitHub 代码搜索
     COMMONCRAWL = "commoncrawl"    # CommonCrawl 网页数据
     ZOOMEYE = "zoomeye"            # ZoomEye 网络空间测绘
+    NVD = "nvd"                    # NVD/CVE 漏洞数据库
     CUSTOM = "custom"              # 自定义导入
 
 
@@ -48,6 +49,7 @@ class AssetType(str, Enum):
     MOBILE_APP = "mobile_app"     # 移动 APP
     ORGANIZATION = "organization" # 组织/企业
     TECHNOLOGY = "technology"     # 技术栈
+    VULNERABILITY = "vulnerability"  # CVE 漏洞
     UNKNOWN = "unknown"
 
 
