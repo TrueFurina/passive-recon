@@ -450,6 +450,48 @@ class NvdCollector(BaseCollector):
         return records
 
 
+class OsvCollector(BaseCollector):
+    """OSV.dev — 开源漏洞数据库（免费，免密钥）。查询 CVE 详情。"""
+
+    SOURCE = AssetSourceEnum.NVD
+    BASE_URL = "https://api.osv.dev"
+
+    def collect(self, domain: str, tech_stacks: Optional[List[str]] = None) -> List[AssetRecord]:
+        _r1_pass(source="osv")
+        records: List[AssetRecord] = []
+        keywords = tech_stacks or []
+
+        for keyword in keywords:
+            try:
+                resp = httpx.post(f"{self.BASE_URL}/v1/query", json={
+                    "package": {"name": keyword, "ecosystem": "PyPI"},
+                    "version": "",
+                }, timeout=self.timeout)
+                if resp.status_code != 200:
+                    resp = httpx.post(f"{self.BASE_URL}/v1/query", json={
+                        "package": {"name": keyword, "ecosystem": "npm"},
+                    }, timeout=self.timeout)
+                if resp.status_code != 200:
+                    continue
+                data = resp.json()
+                for vuln in data.get("vulns", []):
+                    cve_id = vuln.get("id", "")
+                    aliases = vuln.get("aliases", [])
+                    cve = next((a for a in aliases if a.startswith("CVE-")), cve_id)
+                    summary = vuln.get("summary", "")[:200]
+                    if cve:
+                        records.append(AssetRecord(
+                            value=cve, asset_type=AssetType.VULNERABILITY,
+                            source=AssetSourceEnum.NVD,
+                            ip=keyword, title=summary,
+                            tags=["cve", "osv", keyword],
+                        ))
+                _logger.info(f"OSV: {keyword} → {len([r for r in records if keyword in r.tags])} CVE")
+            except Exception as e:
+                _logger.warn(f"OSV 查询异常({keyword}): {e}")
+        return records
+
+
 class HackerTargetCollector(BaseCollector):
     """HackerTarget API — 免费主机/DNS 查询（10次/分钟免费）。"""
 

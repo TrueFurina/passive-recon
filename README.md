@@ -48,6 +48,8 @@ The system auto-infers the target domain, runs all 15 sources in parallel, and p
 | **🤖 AI Risk Scoring** | Automatic risk scoring (0-100) with false positive filtering |
 | **🤖 AI Report Summary** | Auto-generated analysis report after each collection |
 | **🤖 AI Chat Query** | `python cli.py ask "What VPNs does Tsinghua have?"` — natural language asset search |
+| **📌 CVE Vulnerability Intel** | Auto-correlate discovered assets with NVD/OSV for known vulnerabilities |
+| **📊 CVE Lookup** | `python cli.py cve CVE-2024-xxxx` — query CVE details from NVD + OSV |
 
 ---
 
@@ -106,6 +108,8 @@ python cli.py collect "target" --no-ai
 | **VirusTotal** | ✅ Required | Passive DNS / Subdomain |
 | **ZoomEye** | ✅ Required | Network Space Mapping |
 | **Qichacha** | ✅ Required | Chinese Enterprise Registry |
+| **NVD** | ❌ Free | CVE Vulnerability Database |
+| **OSV.dev** | ❌ Free | Open Source Vulnerability Database |
 
 ---
 

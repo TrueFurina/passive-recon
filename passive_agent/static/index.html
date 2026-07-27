@@ -59,6 +59,7 @@
       <a class="active" onclick="switchPage('dashboard',this)">📊 仪表盘</a>
       <a onclick="switchPage('assets',this)">🔍 资产浏览</a>
       <a onclick="switchPage('risks',this)">🚨 风险</a>
+      <a onclick="switchPage('cves',this)">📌 漏洞</a>
       <span id="health" class="pill ok">● 就绪</span>
     </nav>
   </header>
@@ -209,6 +210,29 @@
       <div class="card">
         <table id="riskTbl">
           <thead><tr><th>企业</th><th>风险资产</th><th>IP</th><th>数据源</th><th>标题</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- === 漏洞页 === -->
+    <div id="page-cves" class="page">
+      <div class="sec-title">📌 CVE 漏洞情报</div>
+      <div class="row">
+        <select id="cveEnterprise" onchange="loadCves()">
+          <option value="">所有企业</option>
+        </select>
+        <select id="cveScore" onchange="loadCves()">
+          <option value="">所有评分</option>
+          <option value="9">9.0+ 严重</option>
+          <option value="7">7.0-8.9 高危</option>
+          <option value="4">4.0-6.9 中危</option>
+        </select>
+        <button onclick="loadCves()">刷新</button>
+      </div>
+      <div class="card">
+        <table id="cveTbl">
+          <thead><tr><th>CVE ID</th><th>CVSS</th><th>影响资产</th><th>企业</th><th>描述</th><th>数据源</th></tr></thead>
           <tbody></tbody>
         </table>
       </div>

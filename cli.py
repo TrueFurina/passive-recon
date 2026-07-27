@@ -681,6 +681,52 @@ def cmd_ask(args) -> None:
     print(result)
 
 
+def cmd_cve(args) -> None:
+    """📊 查询 CVE 漏洞详情。"""
+    from passive_agent.collector.sources import NvdCollector, OsvCollector
+    from passive_agent.collector.model import CollectReport
+    import json
+
+    cve_id = args.cve_id.upper()
+    if not cve_id.startswith("CVE-"):
+        print("❌ 请输入有效的 CVE ID，例如: CVE-2024-xxxx")
+        return
+
+    # 构造一个 fake report 来触发漏洞采集
+    fake_report = CollectReport(enterprise="cve-query", domain="cve.local")
+    fake_report.records = []
+
+    # 查询 NVD
+    print(f"🔍 正在查询 {cve_id} 详情...")
+    nvd = NvdCollector(timeout=20)
+    results = nvd.collect("", tech_stacks=[cve_id])
+    for r in results:
+        print(f"\n📌 {r.value}")
+        print(f"   影响: {r.ip or 'N/A'}")
+        print(f"   描述: {r.title or 'N/A'}")
+        score_tag = [t for t in r.tags if t.startswith("score:")]
+        if score_tag:
+            print(f"   CVSS 评分: {score_tag[0].split(':')[1]}")
+        print(f"   来源: {r.source.value}")
+        fake_report.records.append(r)
+
+    # 查询 OSV
+    osv = OsvCollector(timeout=20)
+    osv_results = osv.collect("", tech_stacks=[cve_id])
+    for r in osv_results:
+        if r.value == cve_id:
+            print(f"\n📌 {r.value}")
+            print(f"   影响: {r.ip or 'N/A'}")
+            print(f"   描述: {r.title or 'N/A'}")
+            print(f"   来源: OSV.dev")
+            break
+
+    if not fake_report.records:
+        print(f"\n❌ 未找到 {cve_id} 的相关信息")
+        print("   可能的原因: CVE ID 无效、网络问题、API 限频")
+        print(f"   手动查询: https://nvd.nist.gov/vuln/detail/{cve_id}")
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="cli.py", description="Passive Recon — Enterprise OSINT/EASM/CTEM CLI")
@@ -801,6 +847,11 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("query", help="Your question, e.g. 'What VPNs does Peking University have?'")
     sp.add_argument("--limit", type=int, default=20, help="Max results (default: 20)")
     sp.set_defaults(func=cmd_ask)
+
+    # CVE lookup
+    sp = sub.add_parser("cve", help="📊 Query CVE vulnerability details")
+    sp.add_argument("cve_id", help="CVE ID, e.g. CVE-2024-xxxx")
+    sp.set_defaults(func=cmd_cve)
 
     return p
 

@@ -20,6 +20,7 @@ from passive_agent.collector.sources import (
     HackerTargetCollector,
     HunterCollector,
     NvdCollector,
+    OsvCollector,
     OTXCollector,
     QichachaCollector,
     ReverseDnsCollector,
@@ -54,6 +55,7 @@ SUPPORTED_SOURCES = {
     "commoncrawl": "CommonCrawl 历史网页数据（免费）",
     "zoomeye": "ZoomEye 网络空间测绘（需Key）",
     "nvd": "NVD/CVE 漏洞情报（免费）",
+    "osv": "OSV.dev 开源漏洞库（免费）",
 }
 
 
@@ -351,6 +353,7 @@ class CollectorManager:
             ("commoncrawl", CommonCrawlCollector(timeout=30)),
             ("zoomeye", ZoomEyeCollector(timeout=15, api_key=api_keys.get("zoomeye", ""))),
             ("nvd", NvdCollector(timeout=20)),
+            ("osv", OsvCollector(timeout=20)),
         ]
         if known_ips:
             all_collectors.append(

@@ -135,6 +135,7 @@ function switchPage(name, el) {
   if (el) el.classList.add("active");
   if (name === "assets") { loadEnterprises(); loadAssetSources(); loadAssets(); }
   if (name === "risks") { loadEnterprises(); loadRisks(); }
+  if (name === "cves") { loadEnterprises(); loadCves(); }
 }
 window.switchPage = switchPage;
 
@@ -287,6 +288,50 @@ async function loadRisks() {
   } catch (e) { console.log("loadRisks:", e.message); }
 }
 window.loadRisks = loadRisks;
+
+// ===== 漏洞页 =====
+async function loadCves() {
+  try {
+    const enterprise = $("cveEnterprise").value;
+    const score = $("cveScore").value;
+    const params = new URLSearchParams();
+    if (enterprise) params.set("enterprise", enterprise);
+    params.set("search", "CVE-");
+    params.set("limit", "200");
+    const res = await api("/assets/list?" + params.toString()).then(r => r.json());
+    const assets = (res.data && res.data.assets) || [];
+
+    // 按评分过滤
+    let filtered = assets;
+    if (score) {
+      const min = parseFloat(score);
+      filtered = assets.filter(a => {
+        const tags = a.tags || "";
+        const m = tags.match(/score:(\d+\.?\d*)/);
+        return m && parseFloat(m[1]) >= min;
+      });
+    }
+
+    const tb = $("cveTbl").querySelector("tbody");
+    tb.innerHTML = "";
+    filtered.forEach(a => {
+      const tags = a.tags || "";
+      const m = tags.match(/score:(\d+\.?\d*)/);
+      const scoreVal = m ? m[1] : "?";
+      const scoreClass = parseFloat(scoreVal) >= 9 ? "bad" : parseFloat(scoreVal) >= 7 ? "warn" : "ok";
+      const tr = document.createElement("tr");
+      tr.innerHTML =
+        `<td><b>${a.asset_value || "—"}</b></td>` +
+        `<td><span class="pill ${scoreClass}">${scoreVal}</span></td>` +
+        `<td>${a.ip || "—"}</td>` +
+        `<td>${a.enterprise || "—"}</td>` +
+        `<td style="font-size:12px;color:var(--sub)">${(a.title || "").slice(0, 100)}</td>` +
+        `<td>${a.source_name || "—"}</td>`;
+      tb.appendChild(tr);
+    });
+  } catch (e) { console.log("loadCves:", e.message); }
+}
+window.loadCves = loadCves;
 
 // ===== P1 新增：M5/M6 渲染 + 5min 自动刷新 =====
 
