@@ -179,6 +179,13 @@ def cmd_collect(args) -> None:
         except Exception:
             pass  # AI 失败不影响主流程
 
+    # 风险闭环跟踪
+    try:
+        from passive_agent.collector.risk_tracker import track_risks
+        track_risks(report)
+    except Exception:
+        pass
+
     # 落库
     stored = 0
     for r in report.records:
@@ -217,6 +224,16 @@ def cmd_collect(args) -> None:
 
     # 下一步提示
     print(f"\n💡 试试：python cli.py inventory-export 导出资产清单")
+
+    # 供应链风险监测（可选）
+    if getattr(args, "supply_chain", False):
+        try:
+            from passive_agent.collector.supply_chain import discover_supply_chain
+            print(f"\n🔗 正在分析供应链关联资产...")
+            report = discover_supply_chain(report, max_depth=2)
+            print(f"   ✅ 供应链分析完成")
+        except Exception:
+            pass
 
     # AI 报告生成（有 DeepSeek API Key 时自动调用）
     _generate_ai_report(report, target, domain)
@@ -641,32 +658,100 @@ def cmd_export(args) -> None:
                 print(f"| {r['enterprise']} | {r['domain']} | {r['asset_value']} | {r['asset_type']} | {r['source_name']} | {r['ip'] or ''} | {r['port'] or ''} |")
 
         elif args.format == "nuclei":
+            scenario = getattr(args, "scenario", "") or "all"
             print("# Nuclei 检测模板 — 由 Passive Recon 自动生成")
-            print("# 用法: nuclei -t cves.yaml -l targets.txt")
-            print("id: passive-recon-cve-check")
+            print("# 用法: nuclei -t <template>.yaml -l targets.txt")
             print("")
-            templates = {}
-            for r in rows:
-                tags = r["tags"] or ""
-                if "cve" in tags and r["asset_value"].startswith("CVE-"):
-                    cve_id = r["asset_value"]
-                    tech = r["ip"] or "unknown"
-                    if tech not in templates:
-                        templates[tech] = []
-                    templates[tech].append(cve_id)
-            for tech, cves in templates.items():
-                print(f"  - name: {tech}-cve-check")
-                print(f"    requests:")
-                print(f"      - method: GET")
-                print(f"        path:")
-                print(f"          - \"{{BaseURL}}\"")
-                print(f"        matchers:")
-                print(f"          - type: word")
-                print(f"            words:")
-                for cve in cves[:5]:
-                    print(f"              - \"{cve}\"")
-                print(f"    description: \"{', '.join(cves[:3])}\"")
+
+            if scenario in ("all", "cve"):
+                print("id: passive-recon-cve-check")
+                print("")
+                templates = {}
+                for r in rows:
+                    tags = r["tags"] or ""
+                    if "cve" in tags and r["asset_value"].startswith("CVE-"):
+                        cve_id = r["asset_value"]
+                        tech = r["ip"] or "unknown"
+                        if tech not in templates:
+                            templates[tech] = []
+                        templates[tech].append(cve_id)
+                for tech, cves in templates.items():
+                    print(f"  - name: {tech}-cve-check")
+                    print(f"    requests:")
+                    print(f"      - method: GET")
+                    print(f"        path:")
+                    print(f"          - \"{{BaseURL}}\"")
+                    print(f"        matchers:")
+                    print(f"          - type: word")
+                    print(f"            words:")
+                    for cve in cves[:5]:
+                        print(f"              - \"{cve}\"")
+                    print(f"    description: \"{', '.join(cves[:3])}\"")
+                    print()
+
+            if scenario in ("all", "vpn"):
+                print("---")
+                print("id: passive-recon-vpn-check")
+                print("info:")
+                print("  name: VPN/Remote Access Exposure Check")
+                print("  severity: high")
+                print("  description: Detects exposed VPN and remote access portals")
+                print("requests:")
+                print("  - method: GET")
+                print("    path:")
+                for path in ["/vpn", "/sslvpn", "/webvpn", "/remote", "/citrix", "/global-protect", "/dana-na"]:
+                    print(f"      - \"{path}\"")
+                print("    matchers:")
+                print("      - type: word")
+                print("        words:")
+                for kw in ["vpn", "ssl vpn", "webvpn", "portal", "login", "citrix", "pulse secure"]:
+                    print(f"          - \"{kw}\"")
+                print("        condition: or")
                 print()
+
+            if scenario in ("all", "oa"):
+                print("---")
+                print("id: passive-recon-oa-check")
+                print("info:")
+                print("  name: OA System Exposure Check")
+                print("  severity: medium")
+                print("  description: Detects exposed office automation systems")
+                print("requests:")
+                print("  - method: GET")
+                print("    path:")
+                for path in ["/oa", "/seeyon", "/wps", "/ecology", "/yonyou", "/ufida", "/致远", "/通达"]:
+                    print(f"      - \"{path}\"")
+                print("    matchers:")
+                print("      - type: word")
+                print("        words:")
+                for kw in ["OA", "seeyon", "致远", "通达", "yonyou", "ecology", "login"]:
+                    print(f"          - \"{kw}\"")
+                print("        condition: or")
+                print()
+
+            if scenario in ("all", "database"):
+                print("---")
+                print("id: passive-recon-db-check")
+                print("info:")
+                print("  name: Database Exposure Check")
+                print("  severity: critical")
+                print("  description: Detects exposed database services")
+                print("requests:")
+                print("  - method: GET")
+                print("    path:")
+                for path in ["/phpmyadmin", "/adminer", "/mysql", "/pma", "/sql", "/mongo-express", "/redis"]:
+                    print(f"      - \"{path}\"")
+                print("    matchers:")
+                print("      - type: word")
+                print("        words:")
+                for kw in ["phpmyadmin", "adminer", "mysql", "mongo", "redis", "login"]:
+                    print(f"          - \"{kw}\"")
+                print("        condition: or")
+                print()
+
+            if scenario not in ("all", "cve", "vpn", "oa", "database"):
+                print(f"# ⚠️ 未知场景: {scenario}")
+                print("# 可选场景: all, cve, vpn, oa, database")
 
     finally:
         if close:
@@ -763,6 +848,7 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--sources", default="", help="Comma-separated sources, default all (crt.sh,hackertarget,otx,urlscan,hunter,...)")
     sp.add_argument("--export", default="", help="Export Excel report path (e.g. report.xlsx)")
     sp.add_argument("--no-ai", action="store_true", help="Skip AI analysis (faster, no API call)")
+    sp.add_argument("--supply-chain", action="store_true", help="Enable supply chain risk monitoring (recursive)")
     sp.set_defaults(func=cmd_collect)
 
     # Batch mode
@@ -837,9 +923,10 @@ def build_parser() -> argparse.ArgumentParser:
     sp.set_defaults(func=cmd_schedule)
 
     # Export
-    sp = sub.add_parser("export", help="📤 Export asset data (JSON/CSV/Markdown) for other tools")
-    sp.add_argument("--format", default="json", choices=["json", "csv", "markdown"], help="Output format (default: json)")
+    sp = sub.add_parser("export", help="📤 Export asset data (JSON/CSV/Markdown/Nuclei) for other tools")
+    sp.add_argument("--format", default="json", choices=["json", "csv", "markdown", "nuclei"], help="Output format (default: json)")
     sp.add_argument("--output", default="", help="Output file path (default: stdout)")
+    sp.add_argument("--scenario", default="all", choices=["all", "cve", "vpn", "oa", "database"], help="Nuclei scenario template (default: all)")
     sp.set_defaults(func=cmd_export)
 
     # AI Ask
