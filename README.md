@@ -67,12 +67,12 @@ Passive Recon integrates with **DeepSeek** (no additional cost, free tier availa
 **Examples:**
 ```bash
 # AI domain inference works for any target, not just known ones
-python cli.py collect "任意一个不知名的公司"
+python cli.py collect "some unknown company"
 
 # AI risk scoring with severity visualization
 python cli.py collect "Tsinghua University"
-# Output: ████████ 85分 [P1] VPN 入口暴露: vpn.tsinghua.edu.cn
-#               💡 建议限制VPN入口IP白名单，启用MFA
+# Output: ████████ 85 [P1] VPN entry exposed: vpn.tsinghua.edu.cn
+#               💡 Suggest restricting VPN entry to an IP allowlist and enabling MFA
 
 # AI chat query — ask questions in natural language
 python cli.py ask "What VPNs does Tsinghua University have?"
@@ -161,24 +161,24 @@ python cli.py schedule --targets targets.txt
 After running `python cli.py collect "Tsinghua University"`:
 
 ```
-🎯 目标: Tsinghua University
-🌐 自动推断域名: tsinghua.edu.cn
+🎯 Target: Tsinghua University
+🌐 Auto-inferred domain: tsinghua.edu.cn
 
-# Tsinghua University 被动资产收集报告
-> 主域: tsinghua.edu.cn | 数据源: 15 sources
-> 总数: 285
+# Tsinghua University Passive Asset Collection Report
+> Main domain: tsinghua.edu.cn | Sources: 15
+> Total: 285
 
-## 📊 资产总览
-| 类型 | 数量 |
-|------|------|
+## 📊 Asset Overview
+| Type | Count |
+|------|-------|
 | subdomain | 270 |
-| IP 地址 | 178 |
-| 端口 | 2 |
-| **合计** | **285** |
+| IP address | 178 |
+| port | 2 |
+| **Total** | **285** |
 
-## 🚨 风险发现
-- 🔴 [P1] VPN 入口暴露: vpn.tsinghua.edu.cn
-- 🔴 [P1] WebVPN 远程接入暴露: webvpn.tsinghua.edu.cn
+## 🚨 Risk Findings
+- 🔴 [P1] VPN entry exposed: vpn.tsinghua.edu.cn
+- 🔴 [P1] WebVPN remote access exposed: webvpn.tsinghua.edu.cn
 ```
 
 ---
