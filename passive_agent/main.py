@@ -1,6 +1,7 @@
 """FastAPI 入口：挂载面板 API + 静态页 + 健康检查（蓝图 T12）。"""
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, Request
@@ -22,7 +23,14 @@ from passive_agent.storage import db
 BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
 
-app = FastAPI(title="企业被动信息搜集 Agent · 最小面板", version="0.1.0")
+@asynccontextmanager
+async def _lifespan(_app: FastAPI) -> None:
+    """FastAPI lifespan：应用启动时初始化存储（替代已弃用的 on_event）。"""
+    db.ensure_init()
+    yield
+
+
+app = FastAPI(title="企业被动信息搜集 Agent · 最小面板", version="0.1.0", lifespan=_lifespan)
 
 
 @app.exception_handler(AuthError)
@@ -44,11 +52,6 @@ app.include_router(graph_router, prefix="/api/v1", dependencies=[Depends(require
 
 STATIC_DIR.mkdir(parents=True, exist_ok=True)
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
-
-
-@app.on_event("startup")
-def _startup() -> None:
-    db.ensure_init()
 
 
 @app.get("/api/v1/health")
