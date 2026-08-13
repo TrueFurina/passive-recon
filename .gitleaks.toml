@@ -18,6 +18,8 @@ tags = ["qichacha", "secret"]
 [allowlist]
 paths = [
   '''config\.example\.json''',
+  '''\.env\.example''',
+  '''CONTRIBUTING\.md''',
   '''scripts/SECRET_ROTATION\.md''',
   '''docs/.*''',
   '''\.workbuddy/.*''',
