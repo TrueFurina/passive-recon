@@ -186,6 +186,20 @@ def cmd_collect(args) -> None:
     except Exception:
         pass
 
+    # 资产变化告警（新增高风险资产自动推送 Webhook）
+    try:
+        from passive_agent.collector.asset_alert import detect_new_high_risk, send_alert
+        new_risks = detect_new_high_risk(report)
+        if new_risks:
+            print(f"\n🚨 新增高风险资产 {len(new_risks)} 个:")
+            for item in new_risks[:5]:
+                print(f"   - {item['asset']} [{item['type']}] {item['reason']}")
+            sent = send_alert(report)
+            if sent:
+                print(f"   📤 已推送告警到 Webhook")
+    except Exception:
+        pass
+
     # 落库
     stored = 0
     for r in report.records:

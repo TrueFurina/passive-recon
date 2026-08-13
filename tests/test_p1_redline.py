@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import os
 import inspect
+import re
 from pathlib import Path
 
 import pytest
@@ -115,21 +116,30 @@ class TestRedlineStatic:
                         f"{f.name}: 不应使用 Node.js require()"
 
     def test_no_neo4j_mysql_redis(self):
-        """不引入 Neo4j/MySQL/Redis。"""
+        """不引入 Neo4j/MySQL 硬性依赖；Redis 仅允许 try/except 保护的可选导入。
+
+        redis 在 requirements.txt 中标注 `# optional`（跨 worker 全局频控可选路径，
+        ratelimiter.py 用 try/except 保护，未安装时降级占位），因此不拦截可选导入；
+        Neo4j/MySQL 为硬性禁止，任何导入方式都拦截。
+        """
         files = self._read_all_python_files()
-        forbidden = [
+        hard_forbidden = [
             "from neo4j",
             "import neo4j",
-            "from redis",
-            "import redis",
             "import pymysql",
             "from pymysql",
             "import MySQLdb",
         ]
         for path, content in files.items():
-            for pattern in forbidden:
+            for pattern in hard_forbidden:
                 assert pattern not in content, \
                     f"{path}: 不应引入 {pattern}"
+            # Redis：仅允许被 try 块保护的可选导入（行有缩进且前一非空行以 try:/except 结尾）
+            for m in re.finditer(r"^\s+(from redis|import redis)\b", content, re.M):
+                line_no = content[:m.start()].count("\n") + 1
+                prev_line = content[:m.start()].rstrip().rsplit("\n", 1)[-1]
+                assert prev_line.strip().endswith(("try:", "except")), \
+                    f"{path}:{line_no} redis 导入必须在 try 块内（可选依赖）"
 
     def test_mock_adapter_no_outbound(self):
         """Mock 适配器不出站（不调 _check_compliance 也不实际网络请求）。"""

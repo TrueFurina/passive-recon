@@ -183,6 +183,16 @@ def run_once(targets: List[dict], verbose: bool = True) -> List[dict]:
         print(f"   总风险发现: {total_risks}")
         print(f"{'='*50}\n")
 
+    # Webhook 报告推送（配置了 NOTIFY_*_WEBHOOK 时自动推送）
+    try:
+        from passive_agent.scheduler.notify import has_webhook, send_summary
+        if has_webhook():
+            sent = send_summary(results, targets)
+            if verbose:
+                print(f"📤 Webhook 推送: {'成功' if sent else '失败/未配置'}")
+    except Exception:
+        pass  # 推送失败不影响采集主流程
+
     return results
 
 

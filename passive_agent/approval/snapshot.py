@@ -44,3 +44,19 @@ class SnapshotStore:
         except Exception as exc:
             _logger.error(f"快照加载失败: {exc}")
             return None
+
+    def is_done(self, task_id: str, offset: int) -> bool:
+        """检查指定任务+步骤是否已有快照（断点续跑用）。
+
+        返回 True 表示该步骤已执行过（完成态），应跳过。
+        """
+        try:
+            rows = db.query(
+                "SELECT 1 FROM t_task_snapshot "
+                "WHERE task_id=? AND offset=? AND deleted=0 LIMIT 1",
+                (task_id, offset),
+            )
+            return bool(rows)
+        except Exception as exc:
+            _logger.error(f"快照检查失败: {exc}")
+            return False

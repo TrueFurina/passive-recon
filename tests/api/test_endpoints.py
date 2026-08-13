@@ -52,6 +52,17 @@ def test_approval_endpoints(auth_client):
 
 def test_gateway_endpoints(auth_client):
     assert auth_client.get("/api/v1/gateway/quota").status_code == 200
+    # submit 为 fail-closed 审批闸门：必须先创建并审批通过任务（task_id=AP-{result_id}）
+    c = auth_client.post(
+        "/api/v1/approval/create",
+        json={"task_id": "AP-B1", "subject_id": "s1", "risk_level": "LOW"},
+    )
+    assert c.status_code == 200 and c.json()["code"] == "000000"
+    d = auth_client.post(
+        "/api/v1/approval/decide",
+        json={"task_id": "AP-B1", "action": "APPROVE", "operator": "test"},
+    )
+    assert d.status_code == 200 and d.json()["data"]["status"] == "APPROVED"
     s = auth_client.post(
         "/api/v1/gateway/submit",
         json={"biz_req_no": "B1", "batch_id": "B1"},
@@ -64,8 +75,14 @@ def test_inventory_endpoints(auth_client):
     assert auth_client.get("/api/v1/inventory/export").status_code == 200
 
 
-def test_console_endpoints(auth_client):
+def test_console_endpoints(auth_client, monkeypatch):
     assert auth_client.get("/api/v1/console/overview").status_code == 200
+    # run-company 为后台异步任务：mock 派发，避免真实采集拖慢测试
+    async def _fake_dispatch(task_id, enterprise, max_depth):
+        return None
+    monkeypatch.setattr(
+        "passive_agent.api.routes_console._dispatch_run", _fake_dispatch
+    )
     rc = auth_client.post(
         "/api/v1/console/run-company",
         json={"enterprise": "端点测试企业"},

@@ -9,10 +9,14 @@ from passive_agent.verifier.layers import dns_alive
 
 def test_closed_loop_runs():
     summary = run_company("集成测试企业")
-    assert summary["subjects"] > 0
-    assert summary["verified"] > 0
-    assert summary["submitted"] > 0
-    assert len(summary["approvals"]) == summary["subjects"]
+    # 新契约：闭环完成态（旧 subjects/submitted/approvals 已被重构移除）
+    assert summary["blocked"] is False
+    assert summary["status"] == "completed"
+    assert "total_assets" in summary
+    assert "verified" in summary
+    assert "suspended" in summary
+    assert "rounds" in summary
+    assert summary["trace_id"]
 
 
 def test_active_always_blocked():

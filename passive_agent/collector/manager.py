@@ -134,7 +134,7 @@ class CollectorManager:
                 else:
                     _logger.info(f"  [{source_name}] → {len(records)} 条")
 
-        # 去重 + IP 补全 + 风险检测 + 漏洞关联
+        # 去重 + IP 补全 + 风险检测 + 漏洞关联 + 资产评分
         self._dedup(report)
         self._enrich_ips(report)
         self._detect_risks(report)
@@ -142,7 +142,12 @@ class CollectorManager:
             from passive_agent.collector.vuln_matcher import match_vulnerabilities
             match_vulnerabilities(report)
         except Exception:
-            pass  # 漏洞关联失败不影响主流程
+            pass
+        try:
+            from passive_agent.collector.scorer import score_report
+            score_report(report)
+        except Exception:
+            pass
         report.total_records = len(report.records)
         report.completed_at = datetime.now(timezone.utc).isoformat()
 

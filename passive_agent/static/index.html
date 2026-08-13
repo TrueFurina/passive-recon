@@ -195,6 +195,14 @@
           <tbody></tbody>
         </table>
         <div class="pagination" id="assetPagination"></div>
+        <!-- 资产详情面板（点击行展开） -->
+        <div id="assetDetail" style="display:none;margin-top:12px;padding:14px;background:#0c1117;border:1px solid var(--line);border-radius:8px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <b id="detailTitle">资产详情</b>
+            <button class="sec" onclick="closeDetail()">✕ 关闭</button>
+          </div>
+          <div id="detailBody" style="font-size:13px;color:var(--txt);line-height:1.8;"></div>
+        </div>
       </div>
     </div>
 

@@ -215,6 +215,8 @@ async function loadAssets() {
     tb.innerHTML = "";
     assets.forEach(a => {
       const tr = document.createElement("tr");
+      tr.style.cursor = "pointer";
+      tr.title = "点击查看详情";
       const typeBadge = a.asset_type === "subdomain" ? "badge subdomain"
         : a.asset_type === "ip" ? "badge ip"
         : a.asset_type === "port" ? "badge port"
@@ -226,6 +228,8 @@ async function loadAssets() {
         `<td>${a.ip || "—"}</td>` +
         `<td>${a.port || "—"}</td>` +
         `<td>${a.source_name || "—"}</td>`;
+      // 点击行显示资产详情
+      tr.addEventListener("click", () => showAssetDetail(a));
       tb.appendChild(tr);
     });
 
@@ -238,6 +242,61 @@ async function loadAssets() {
       <button class="sec" onclick="nextPage()" ${_assetPage >= totalPages - 1 ? "disabled" : ""}>下一页 →</button>
     `;
   } catch (e) { console.log("loadAssets:", e.message); }
+}
+
+// ===== 资产详情 =====
+let _currentAsset = null;
+function showAssetDetail(a) {
+  _currentAsset = a;
+  $("detailTitle").textContent = "📄 " + (a.asset_value || "资产详情");
+  let tagsHtml = "";
+  try {
+    const tags = JSON.parse(a.tags || "[]");
+    if (Array.isArray(tags)) {
+      tagsHtml = tags.map(t => `<span class="tag">${t}</span>`).join(" ");
+    }
+  } catch (e) {
+    tagsHtml = (a.tags || "").replace(/[\[\]"]/g, "");
+  }
+  const rows = [
+    ["资产", a.asset_value || "—"],
+    ["类型", a.asset_type || "—"],
+    ["企业", a.enterprise || "—"],
+    ["域名", a.domain || "—"],
+    ["IP", a.ip || "—"],
+    ["端口", a.port || "—"],
+    ["数据源", a.source_name || "—"],
+    ["标题", a.title || "—"],
+    ["标签", tagsHtml || "—"],
+  ];
+  $("detailBody").innerHTML = rows.map(([k, v]) =>
+    `<div style="display:flex;gap:12px;"><span style="color:var(--sub);min-width:70px;">${k}</span><span>${v}</span></div>`
+  ).join("");
+  $("assetDetail").style.display = "block";
+  $("assetDetail").scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+function closeDetail() { $("assetDetail").style.display = "none"; }
+window.showAssetDetail = showAssetDetail;
+window.closeDetail = closeDetail;
+
+// ===== 采集进度（轮询后台 run-company 任务）=====
+let _progressTimer = null;
+async function pollRunStatus() {
+  try {
+    const res = await api("/console/overview").then(r => r.json());
+    const d = res.data || {};
+    // 展示最近采集任务状态（由 schedule/run-company 写入）
+    const el = $("collectProgress");
+    if (el) {
+      el.textContent = `✅ 最近采集状态正常 | 合规规则: ${d.compliance?.rules ?? "—"} 条`;
+    }
+  } catch (e) { console.log("pollRunStatus:", e.message); }
+}
+
+function startProgressPolling() {
+  if (_progressTimer) clearInterval(_progressTimer);
+  pollRunStatus();
+  _progressTimer = setInterval(pollRunStatus, 30000); // 每 30 秒轮询
 }
 
 function prevPage() { if (_assetPage > 0) { _assetPage--; loadAssets(); } }

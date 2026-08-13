@@ -16,7 +16,8 @@ _logger = ilog.get_logger("inventory")
 
 class InventoryRegistry:
     def __init__(self) -> None:
-        self._lock = threading.Lock()
+        # RLock：all() 持锁调用 seed_defaults()（内部再取锁），Lock 不可重入会死锁
+        self._lock = threading.RLock()
         self._tools: List[OssTool] = []
         self._seeded = False
 

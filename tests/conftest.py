@@ -50,6 +50,16 @@ def mock_external_network():
     mock_get_resp.raise_for_status = MagicMock()
     mock_httpx_get.return_value = mock_get_resp
 
+    # Mock httpx.post (used by OSV/NVD collectors, supply_chain, AI client)
+    httpx_post_patcher = patch("httpx.post")
+    mock_httpx_post = httpx_post_patcher.start()
+    mock_post_resp = MagicMock()
+    mock_post_resp.json.return_value = {}
+    mock_post_resp.text = ""
+    mock_post_resp.status_code = 200
+    mock_post_resp.raise_for_status = MagicMock()
+    mock_httpx_post.return_value = mock_post_resp
+
     # Mock dns.resolver.resolve
     dns_patcher = patch("dns.resolver.resolve", side_effect=Exception("mocked: no DNS in tests"))
     dns_patcher.start()
@@ -58,6 +68,7 @@ def mock_external_network():
 
     httpx_patcher.stop()
     httpx_get_patcher.stop()
+    httpx_post_patcher.stop()
     dns_patcher.stop()
 
 
