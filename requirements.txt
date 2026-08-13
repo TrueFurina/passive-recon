@@ -21,6 +21,9 @@ pytest>=8.0
 # 未安装则自动回退进程内单例（仅单 worker 语义，启动日志会告警）。
 redis>=4.0  # optional
 
+# ===== PDF 报告导出（企业版特性，纯 Python 无系统依赖）=====
+fpdf2>=2.7  # optional
+
 # 说明：
 # - 不引入 MySQL/Redis/Neo4j/RabbitMQ（本战役用 SQLite + JSON，详见蓝图 §1.2）。
 # - python-whois 为可选被动源依赖，初赛扩展采集时再加，本战役不强制。

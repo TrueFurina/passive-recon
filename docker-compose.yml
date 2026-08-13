@@ -1,0 +1,36 @@
+# ============================================================
+# Passive Recon — 一键部署
+# 用法：
+#   docker compose up -d          # 启动
+#   docker compose logs -f        # 查看日志
+#   docker compose down           # 停止
+# 访问：http://localhost:8000
+# ============================================================
+
+services:
+  recon:
+    build: .
+    container_name: passive-recon
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      # 数据源 API 密钥（JSON 格式，必填——从环境变量注入，不写入镜像）
+      PASSIVE_API_KEYS: "${PASSIVE_API_KEYS:-{}}"
+      # DeepSeek AI（可选）
+      DEEPSEEK_API_KEY: "${DEEPSEEK_API_KEY:-}"
+      # Webhook 通知（可选）
+      NOTIFY_WECHAT_WEBHOOK: "${NOTIFY_WECHAT_WEBHOOK:-}"
+      NOTIFY_DINGTALK_WEBHOOK: "${NOTIFY_DINGTALK_WEBHOOK:-}"
+    volumes:
+      # 持久化运行期数据（数据库/报告）
+      - recon-data:/app/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health', timeout=5)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  recon-data:

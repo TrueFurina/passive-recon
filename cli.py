@@ -808,6 +808,67 @@ def cmd_export(args) -> None:
                 print(f"# ⚠️ 未知场景: {scenario}")
                 print("# 可选场景: all, cve, vpn, oa, database")
 
+        elif args.format == "pdf":
+            # 企业版特性：PDF 报告导出（fpdf2，纯 Python）
+            try:
+                from fpdf import FPDF
+            except ImportError:
+                print("❌ 未安装 fpdf2，请先: pip install fpdf2")
+                return
+
+            out_path = args.output if isinstance(args.output, str) else "data/assets_report.pdf"
+            if isinstance(output, object) and not isinstance(args.output, str):
+                out_path = "data/assets_report.pdf"
+
+            pdf = FPDF()
+            pdf.set_auto_page_break(auto=True, margin=15)
+            pdf.add_page()
+            pdf.set_font("helvetica", "B", 16)
+            pdf.cell(0, 10, "Passive Recon - Asset Report", ln=True, align="C")
+            pdf.ln(2)
+            pdf.set_font("helvetica", "", 10)
+            pdf.cell(0, 8, f"Generated: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')} UTC", ln=True, align="C")
+            pdf.cell(0, 8, f"Total assets: {len(rows)}", ln=True, align="C")
+            pdf.ln(6)
+
+            # 表头
+            pdf.set_font("helvetica", "B", 9)
+            headers = ["Enterprise", "Domain", "Asset", "Type", "Source", "IP", "Port"]
+            widths = [30, 25, 50, 20, 25, 30, 12]
+            for h, w in zip(headers, widths):
+                pdf.cell(w, 7, h, border=1)
+            pdf.ln()
+
+            # 数据行
+            pdf.set_font("helvetica", "", 8)
+            for r in rows:
+                vals = [
+                    str(r["enterprise"] or "")[:20],
+                    str(r["domain"] or "")[:15],
+                    str(r["asset_value"] or "")[:35],
+                    str(r["asset_type"] or "")[:15],
+                    str(r["source_name"] or "")[:15],
+                    str(r["ip"] or "")[:15],
+                    str(r["port"] or ""),
+                ]
+                # 自动分页
+                if pdf.get_y() > 270:
+                    pdf.add_page()
+                    pdf.set_font("helvetica", "B", 9)
+                    for h, w in zip(headers, widths):
+                        pdf.cell(w, 7, h, border=1)
+                    pdf.ln()
+                    pdf.set_font("helvetica", "", 8)
+                for v, w in zip(vals, widths):
+                    pdf.cell(w, 6, v, border=1)
+                pdf.ln()
+
+            import os as _os
+            _os.makedirs(_os.path.dirname(out_path) or ".", exist_ok=True)
+            pdf.output(out_path)
+            print(f"✅ 已导出 {len(rows)} 条资产 (PDF) → {out_path}")
+            return
+
     finally:
         if close:
             output.close()
@@ -978,8 +1039,8 @@ def build_parser() -> argparse.ArgumentParser:
     sp.set_defaults(func=cmd_schedule)
 
     # Export
-    sp = sub.add_parser("export", help="📤 Export asset data (JSON/CSV/Markdown/Nuclei) for other tools")
-    sp.add_argument("--format", default="json", choices=["json", "csv", "markdown", "nuclei"], help="Output format (default: json)")
+    sp = sub.add_parser("export", help="📤 Export asset data (JSON/CSV/Markdown/Nuclei/PDF) for other tools")
+    sp.add_argument("--format", default="json", choices=["json", "csv", "markdown", "nuclei", "pdf"], help="Output format (default: json)")
     sp.add_argument("--output", default="", help="Output file path (default: stdout)")
     sp.add_argument("--scenario", default="all", choices=["all", "cve", "vpn", "oa", "database"], help="Nuclei scenario template (default: all)")
     sp.set_defaults(func=cmd_export)
