@@ -12,6 +12,8 @@ from typing import Any, Dict, List, Optional
 from passive_agent.collector.domain_db import infer_domain, verify_domain_alive
 from passive_agent.collector.model import AssetRecord, AssetSourceEnum, AssetType, CollectReport
 from passive_agent.collector.sources import (
+    BinaryEdgeCollector,
+    CensysCollector,
     CommonCrawlCollector,
     CrtshCollector,
     DnsDumpsterCollector,
@@ -56,6 +58,8 @@ SUPPORTED_SOURCES = {
     "zoomeye": "ZoomEye 网络空间测绘（需Key）",
     "nvd": "NVD/CVE 漏洞情报（免费）",
     "osv": "OSV.dev 开源漏洞库（免费）",
+    "censys": "Censys 互联网资产测绘（需API ID+Secret）",
+    "binaryedge": "BinaryEdge 威胁情报（需Key）",
 }
 
 
@@ -106,16 +110,60 @@ class CollectorManager:
         # 并发采集（ThreadPoolExecutor 并行多个数据源）
         from concurrent.futures import ThreadPoolExecutor, as_completed
         import threading
+        import time as _time
 
         _results_lock = threading.Lock()
 
         def _run_one(source_name: str, collector) -> tuple:
+            # 数据源健康度：不可用源直接跳过（自动降级）
             try:
+                from passive_agent.collector.health import get_health_monitor
+                hm = get_health_monitor()
+                if not hm.is_available(source_name):
+                    _logger.info(f"  [{source_name}] 健康度不可用，自动降级跳过")
+                    return (source_name, [], None)
+            except Exception:
+                hm = None
+
+            _t0 = _time.monotonic()
+            try:
+                # 结果缓存：相同「源+目标」24h 内命中直接返回
+                try:
+                    from passive_agent.collector.cache import get as cache_get, put as cache_put
+                    from passive_agent.collector.model import AssetRecord
+                    cached = cache_get(source_name, domain)
+                    if cached is not None:
+                        records = [
+                            AssetRecord(**{k: v for k, v in item.items()
+                                           if k in AssetRecord.model_fields})
+                            for item in cached
+                        ]
+                        latency = round((_time.monotonic() - _t0) * 1000, 1)
+                        if hm:
+                            hm.record_success(source_name, latency)
+                        return (source_name, records, None)
+                except Exception:
+                    cached = None
+
                 records = collector.collect(domain)
+                latency = round((_time.monotonic() - _t0) * 1000, 1)
+                if hm:
+                    hm.record_success(source_name, latency)
+                # 回填缓存（仅非空结果）
+                try:
+                    if records:
+                        cache_put(source_name, domain,
+                                  [r.model_dump() for r in records])
+                except Exception:
+                    pass
                 return (source_name, records, None)
             except PermissionError as e:
+                if hm:
+                    hm.record_failure(source_name, str(e))
                 return (source_name, [], f"[{source_name}] R1 拦截: {e}")
             except Exception as e:
+                if hm:
+                    hm.record_failure(source_name, str(e))
                 return (source_name, [], f"[{source_name}] 异常: {e}")
 
         with ThreadPoolExecutor(max_workers=len(collectors)) as pool:
@@ -359,6 +407,8 @@ class CollectorManager:
             ("zoomeye", ZoomEyeCollector(timeout=15, api_key=api_keys.get("zoomeye", ""))),
             ("nvd", NvdCollector(timeout=20)),
             ("osv", OsvCollector(timeout=20)),
+            ("censys", CensysCollector(timeout=20, api_key=api_keys.get("censys", ""))),
+            ("binaryedge", BinaryEdgeCollector(timeout=20, api_key=api_keys.get("binaryedge", ""))),
         ]
         if known_ips:
             all_collectors.append(

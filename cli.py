@@ -337,7 +337,7 @@ def cmd_import_path(args) -> None:
 
 
 def cmd_batch(args) -> None:
-    """批量采集：文件每行一个目标，自动并行执行。"""
+    """批量采集：文件每行一个目标，自动并行执行（支持断点续跑）。"""
     _ensure()
     from passive_agent.ai.domain_infer import infer_domain
     from passive_agent.collector.manager import CollectorManager
@@ -349,16 +349,57 @@ def cmd_batch(args) -> None:
     print(f"   数据源: {args.sources or '全部'}")
     print()
 
+    # 断点续跑：查询已完成目标（同一文件指纹）
+    import hashlib
+    batch_key = "batch:" + hashlib.md5(args.file.encode()).hexdigest()[:8]
+    try:
+        from passive_agent.storage import db
+        db.write(
+            "CREATE TABLE IF NOT EXISTS t_batch_progress ("
+            "  batch_key TEXT NOT NULL,"
+            "  target TEXT NOT NULL,"
+            "  completed_at TEXT,"
+            "  PRIMARY KEY (batch_key, target)"
+            ")"
+        )
+        done_rows = db.query(
+            "SELECT target FROM t_batch_progress WHERE batch_key=?",
+            (batch_key,),
+        )
+        done = {r["target"] for r in done_rows}
+        # 清理不存在于当前列表的旧记录
+        valid = set(targets)
+        stale = done - valid
+        for s in stale:
+            db.write("DELETE FROM t_batch_progress WHERE batch_key=? AND target=?",
+                     (batch_key, s))
+    except Exception:
+        done = set()
+
+    pending = [t for t in targets if t not in done]
+    if done:
+        print(f"⏩ 断点续跑: 已跳过 {len(done)} 个已完成目标，剩余 {len(pending)} 个")
+        print()
+
     mgr = CollectorManager()
     results = []
-    for i, target in enumerate(targets, 1):
+    for i, target in enumerate(pending, 1):
         domain = args.domain or ""
         if not domain:
             domain = infer_domain(target)
-        print(f"[{i}/{len(targets)}] {target} → {domain}")
+        print(f"[{i}/{len(pending)}] {target} → {domain}")
         report = mgr.collect(name=target, domain=domain,
                              enabled_sources=args.sources.split(",") if args.sources else None)
         results.append(report)
+        # 记录断点
+        try:
+            db.write(
+                "INSERT OR REPLACE INTO t_batch_progress (batch_key, target, completed_at) "
+                "VALUES (?,?,datetime('now'))",
+                (batch_key, target),
+            )
+        except Exception:
+            pass
         print(f"  → {report.total_records} 条资产\n")
 
     # 汇总

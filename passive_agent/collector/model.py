@@ -34,6 +34,8 @@ class AssetSourceEnum(str, Enum):
     COMMONCRAWL = "commoncrawl"    # CommonCrawl 网页数据
     ZOOMEYE = "zoomeye"            # ZoomEye 网络空间测绘
     NVD = "nvd"                    # NVD/CVE 漏洞数据库
+    CENSYS = "censys"              # Censys 互联网资产测绘
+    BINARYEDGE = "binaryedge"      # BinaryEdge 威胁情报
     CUSTOM = "custom"              # 自定义导入
 
 

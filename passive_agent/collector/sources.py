@@ -492,6 +492,86 @@ class OsvCollector(BaseCollector):
         return records
 
 
+class CensysCollector(BaseCollector):
+    """Censys — 互联网资产测绘（需 API ID + Secret）。查询域名关联的主机/证书。"""
+
+    SOURCE = AssetSourceEnum.CENSYS
+    BASE_URL = "https://search.censys.io/api/v2"
+
+    def collect(self, domain: str) -> List[AssetRecord]:
+        _r1_pass(source="censys")
+        records: List[AssetRecord] = []
+        api_id, api_secret = "", ""
+        if isinstance(self.api_key, dict):
+            api_id = self.api_key.get("censys_id", "") or self.api_key.get("id", "")
+            api_secret = self.api_key.get("censys_secret", "") or self.api_key.get("secret", "")
+        elif isinstance(self.api_key, str) and ":" in self.api_key:
+            api_id, api_secret = self.api_key.split(":", 1)
+        if not api_id or not api_secret:
+            self._errors.append("Censys: 无 API ID/Secret，跳过")
+            _logger.info("Censys: 无 API ID/Secret，跳过")
+            return records
+        try:
+            auth = (api_id, api_secret)
+            resp = httpx.get(
+                f"{self.BASE_URL}/hosts/search",
+                params={"q": f"services.tls.certificates.leaf_data.names: {domain}", "per_page": 50},
+                auth=auth, timeout=self.timeout,
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                for hit in data.get("result", {}).get("hits", []):
+                    ip = hit.get("ip", "")
+                    services = hit.get("services", [])
+                    for svc in services:
+                        if ip:
+                            records.append(AssetRecord(
+                                value=ip, asset_type=AssetType.IP,
+                                source=self.SOURCE, ip=ip,
+                                port=svc.get("port"),
+                                tech_stack=[c.get("product_name", "") for c in svc.get("software", []) if c.get("product_name")],
+                                tags=["censys", domain],
+                            ))
+                _logger.info(f"Censys: {domain} → {len(records)} 条")
+        except Exception as e:
+            self._errors.append(f"Censys 失败: {e}")
+            _logger.warn(f"Censys 采集异常: {e}")
+        return records
+
+
+class BinaryEdgeCollector(BaseCollector):
+    """BinaryEdge — 威胁情报/资产发现（需 API Key）。"""
+
+    SOURCE = AssetSourceEnum.BINARYEDGE
+    BASE_URL = "https://api.binaryedge.io/v2"
+
+    def collect(self, domain: str) -> List[AssetRecord]:
+        _r1_pass(source="binaryedge")
+        records: List[AssetRecord] = []
+        if not self.api_key:
+            self._errors.append("BinaryEdge: 无 API Key，跳过")
+            _logger.info("BinaryEdge: 无 API Key，跳过")
+            return records
+        try:
+            resp = httpx.get(
+                f"{self.BASE_URL}/query/domains/subdomain/{domain}",
+                headers={"X-Key": self.api_key},
+                timeout=self.timeout,
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                for sub in data.get("subdomains", []):
+                    records.append(AssetRecord(
+                        value=sub, asset_type=AssetType.SUBDOMAIN,
+                        source=self.SOURCE, tags=["binaryedge", domain],
+                    ))
+                _logger.info(f"BinaryEdge: {domain} → {len(records)} 子域名")
+        except Exception as e:
+            self._errors.append(f"BinaryEdge 失败: {e}")
+            _logger.warn(f"BinaryEdge 采集异常: {e}")
+        return records
+
+
 class HackerTargetCollector(BaseCollector):
     """HackerTarget API — 免费主机/DNS 查询（10次/分钟免费）。"""
 
