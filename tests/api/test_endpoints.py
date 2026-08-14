@@ -12,8 +12,8 @@ from passive_agent.api import deps
 from passive_agent.config import settings
 from passive_agent.main import app
 
-# 与 conftest.api_client 注入的测试令牌保持一致
-TEST_TOKEN = "test-token-p1-hardening"
+# 与 conftest.api_client 注入的测试令牌保持一致（带 :admin 后缀：审批路由需管理员角色）
+TEST_TOKEN = "test-token-p1-hardening:admin"
 
 
 @pytest.fixture

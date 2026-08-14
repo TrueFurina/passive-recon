@@ -882,6 +882,31 @@ def cmd_ask(args) -> None:
     print(result)
 
 
+def cmd_compliance_report(args) -> None:
+    """📊 周期合规审计报告（企业版特性）。"""
+    _ensure()
+    from passive_agent.audit.report import build_report, to_markdown, to_csv
+
+    report = build_report(days=args.days, enterprise=args.enterprise or None)
+
+    if args.format == "csv":
+        text = to_csv(report)
+        if args.output:
+            with open(args.output, "w", encoding="utf-8", newline="") as fh:
+                fh.write(text)
+            print(f"✅ 合规报告已导出 (CSV) → {args.output}")
+        else:
+            print(text)
+    else:
+        text = to_markdown(report)
+        if args.output:
+            with open(args.output, "w", encoding="utf-8") as fh:
+                fh.write(text)
+            print(f"✅ 合规报告已导出 (Markdown) → {args.output}")
+        else:
+            print(text)
+
+
 def cmd_cve(args) -> None:
     """📊 查询 CVE 漏洞详情。"""
     from passive_agent.collector.sources import NvdCollector, OsvCollector
@@ -892,7 +917,6 @@ def cmd_cve(args) -> None:
     if not cve_id.startswith("CVE-"):
         print("❌ 请输入有效的 CVE ID，例如: CVE-2024-xxxx")
         return
-
     # 构造一个 fake report 来触发漏洞采集
     fake_report = CollectReport(enterprise="cve-query", domain="cve.local")
     fake_report.records = []
@@ -1055,6 +1079,14 @@ def build_parser() -> argparse.ArgumentParser:
     sp = sub.add_parser("cve", help="📊 Query CVE vulnerability details")
     sp.add_argument("cve_id", help="CVE ID, e.g. CVE-2024-xxxx")
     sp.set_defaults(func=cmd_cve)
+
+    # Compliance report (enterprise feature)
+    sp = sub.add_parser("compliance-report", help="📊 Periodic compliance audit report (enterprise)")
+    sp.add_argument("--days", type=int, default=7, help="Report period in days (default: 7)")
+    sp.add_argument("--enterprise", default="", help="Filter by enterprise (default: all)")
+    sp.add_argument("--format", default="markdown", choices=["markdown", "csv"], help="Output format (default: markdown)")
+    sp.add_argument("--output", default="", help="Output file path (default: stdout)")
+    sp.set_defaults(func=cmd_compliance_report)
 
     return p
 

@@ -14,7 +14,8 @@ from passive_agent.api import deps
 from passive_agent.config import settings
 from passive_agent.main import app
 
-TEST_TOKEN = "p1-hardening-test-token"
+# 带 :admin 后缀：审批/敏感路由需要管理员角色（RBAC）
+TEST_TOKEN = "p1-hardening-test-token:admin"
 
 
 @pytest.fixture

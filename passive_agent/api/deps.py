@@ -14,7 +14,7 @@ from typing import FrozenSet
 
 from fastapi import Request
 
-from passive_agent.common.security import AuthError, verify_token
+from passive_agent.common.security import AuthError, PermissionDenied, verify_token, is_admin_token
 from passive_agent.config import settings
 
 # 免鉴权路径（精确匹配）
@@ -60,3 +60,21 @@ def require_auth(request: Request) -> None:
         return
     if not verify_token(request.headers.get("Authorization", "")):
         raise AuthError("unauthorized")
+
+
+def require_admin(request: Request) -> None:
+    """管理员权限依赖（RBAC）；非管理员令牌访问敏感端点 → 403。
+
+    用法：在敏感路由的 router 级或端点级叠加 Depends(require_admin)。
+    - 鉴权总开关关闭（测试/演示）→ 放行（与 require_auth 一致）
+    - loopback / 豁免路径 → 放行
+    - 令牌非管理员角色 → PermissionDenied（→ 403 040003）
+    """
+    if not settings.API_AUTH_ENABLED:
+        return
+    if _is_exempt(request) or _is_loopback(request):
+        return
+    if not verify_token(request.headers.get("Authorization", "")):
+        raise AuthError("unauthorized")
+    if not is_admin_token(request.headers.get("Authorization", "")):
+        raise PermissionDenied("admin only")

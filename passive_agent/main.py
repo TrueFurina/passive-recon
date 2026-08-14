@@ -8,7 +8,7 @@ from fastapi import Depends, FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from passive_agent.api.deps import require_auth
+from passive_agent.api.deps import require_auth, require_admin
 from passive_agent.api.routes_approval import router as approval_router
 from passive_agent.api.routes_compliance import router as compliance_router
 from passive_agent.api.routes_console import router as console_router
@@ -17,7 +17,7 @@ from passive_agent.api.routes_inventory import router as inventory_router
 from passive_agent.api.routes_metrics import router as metrics_router
 from passive_agent.api.routes_graph import router as graph_router
 from passive_agent.common.result import ok
-from passive_agent.common.security import AuthError
+from passive_agent.common.security import AuthError, PermissionDenied
 from passive_agent.storage import db
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -42,8 +42,17 @@ def _auth_error_handler(request: Request, exc: AuthError) -> JSONResponse:
     )
 
 
+@app.exception_handler(PermissionDenied)
+def _permission_error_handler(request: Request, exc: PermissionDenied) -> JSONResponse:
+    """权限不足统一返回 403 体（{ok:false, error, code:040003}）。"""
+    return JSONResponse(
+        status_code=403,
+        content={"ok": False, "error": "permission denied", "code": "040003"},
+    )
+
+
 app.include_router(compliance_router, prefix="/api/v1", dependencies=[Depends(require_auth)])
-app.include_router(approval_router, prefix="/api/v1", dependencies=[Depends(require_auth)])
+app.include_router(approval_router, prefix="/api/v1", dependencies=[Depends(require_auth), Depends(require_admin)])
 app.include_router(gateway_router, prefix="/api/v1", dependencies=[Depends(require_auth)])
 app.include_router(inventory_router, prefix="/api/v1", dependencies=[Depends(require_auth)])
 app.include_router(console_router, prefix="/api/v1", dependencies=[Depends(require_auth)])
