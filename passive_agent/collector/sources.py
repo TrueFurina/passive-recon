@@ -572,6 +572,50 @@ class BinaryEdgeCollector(BaseCollector):
         return records
 
 
+class DnsdbCollector(BaseCollector):
+    """DNSDB — 被动 DNS 历史解析记录（需 API Key）。查询域名的历史子域名。"""
+
+    SOURCE = AssetSourceEnum.DNSDB
+    BASE_URL = "https://api.dnsdb.info"
+
+    def collect(self, domain: str) -> List[AssetRecord]:
+        _r1_pass(source="dnsdb")
+        records: List[AssetRecord] = []
+        if not self.api_key:
+            self._errors.append("DNSDB: 无 API Key，跳过")
+            _logger.info("DNSDB: 无 API Key，跳过")
+            return records
+        try:
+            resp = httpx.get(
+                f"{self.BASE_URL}/lookup/rrset/name/{domain}/ANY",
+                headers={"X-API-Key": self.api_key, "Accept": "application/x-ndjson"},
+                timeout=self.timeout,
+            )
+            if resp.status_code == 200:
+                import json as _json
+                seen: Set[str] = set()
+                for line in resp.text.strip().splitlines():
+                    if not line:
+                        continue
+                    try:
+                        row = _json.loads(line)
+                        # rrname 形如 "vpn.example.com."（末尾点）
+                        rrname = (row.get("rrname") or "").strip(".")
+                        if rrname and rrname.endswith(f".{domain}") and rrname not in seen:
+                            seen.add(rrname)
+                            records.append(AssetRecord(
+                                value=rrname, asset_type=AssetType.SUBDOMAIN,
+                                source=self.SOURCE, tags=["dnsdb", "passive-dns"],
+                            ))
+                    except Exception:
+                        continue
+                _logger.info(f"DNSDB: {domain} → {len(records)} 子域名")
+        except Exception as e:
+            self._errors.append(f"DNSDB 失败: {e}")
+            _logger.warn(f"DNSDB 采集异常: {e}")
+        return records
+
+
 class HackerTargetCollector(BaseCollector):
     """HackerTarget API — 免费主机/DNS 查询（10次/分钟免费）。"""
 

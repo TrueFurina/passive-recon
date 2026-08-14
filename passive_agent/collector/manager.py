@@ -16,6 +16,7 @@ from passive_agent.collector.sources import (
     CensysCollector,
     CommonCrawlCollector,
     CrtshCollector,
+    DnsdbCollector,
     DnsDumpsterCollector,
     FofaCollector,
     GitHubCollector,
@@ -60,6 +61,7 @@ SUPPORTED_SOURCES = {
     "osv": "OSV.dev 开源漏洞库（免费）",
     "censys": "Censys 互联网资产测绘（需API ID+Secret）",
     "binaryedge": "BinaryEdge 威胁情报（需Key）",
+    "dnsdb": "DNSDB 被动 DNS 历史记录（需Key）",
 }
 
 
@@ -409,6 +411,7 @@ class CollectorManager:
             ("osv", OsvCollector(timeout=20)),
             ("censys", CensysCollector(timeout=20, api_key=api_keys.get("censys", ""))),
             ("binaryedge", BinaryEdgeCollector(timeout=20, api_key=api_keys.get("binaryedge", ""))),
+            ("dnsdb", DnsdbCollector(timeout=20, api_key=api_keys.get("dnsdb", ""))),
         ]
         if known_ips:
             all_collectors.append(

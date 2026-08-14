@@ -136,8 +136,48 @@ function switchPage(name, el) {
   if (name === "assets") { loadEnterprises(); loadAssetSources(); loadAssets(); }
   if (name === "risks") { loadEnterprises(); loadRisks(); }
   if (name === "cves") { loadEnterprises(); loadCves(); }
+  if (name === "supply") { loadSupply(); }
 }
 window.switchPage = switchPage;
+
+// ===== 供应链关系页 =====
+async function loadSupply() {
+  try {
+    // 供应链资产以 enterprise 含"供应链"标识（collect --supply-chain 生成）
+    const res = await api("/assets/list?search=供应链&limit=200").then(r => r.json());
+    const assets = (res.data && res.data.assets) || [];
+    const total = (res.data && res.data.total) || 0;
+
+    $("supplyCount").textContent = `共 ${total} 条供应链关联资产`;
+
+    const tb = $("supplyTbl").querySelector("tbody");
+    tb.innerHTML = "";
+    assets.forEach(a => {
+      const tr = document.createElement("tr");
+      // 重要性
+      let imp = 0;
+      try {
+        const tags = JSON.parse(a.tags || "[]");
+        const m = (Array.isArray(tags) ? tags : []).find(t => typeof t === "string" && t.startsWith("importance:"));
+        if (m) imp = parseInt(m.split(":")[1], 10) || 0;
+      } catch (e) {
+        const m = String(a.tags || "").match(/importance:(\d+)/);
+        if (m) imp = parseInt(m[1], 10) || 0;
+      }
+      const impCls = imp >= 90 ? "bad" : imp >= 70 ? "warn" : imp >= 50 ? "ok" : "";
+      const impHtml = imp > 0 ? `<span class="pill ${impCls}">${imp}</span>` : "—";
+      tr.innerHTML =
+        `<td>${a.asset_value || "—"}</td>` +
+        `<td>${a.asset_type || "—"}</td>` +
+        `<td>${impHtml}</td>` +
+        `<td>${a.enterprise || "—"}</td>` +
+        `<td>${a.ip || "—"}</td>` +
+        `<td>${a.source_name || "—"}</td>`;
+      tb.appendChild(tr);
+    });
+  } catch (e) { console.log("loadSupply:", e.message); }
+}
+window.loadSupply = loadSupply;
 
 // ===== 资产浏览 =====
 let _debounceTimer = null;
@@ -213,7 +253,22 @@ async function loadAssets() {
 
     const tb = $("assetTbl").querySelector("tbody");
     tb.innerHTML = "";
-    assets.forEach(a => {
+
+    // 按重要性评分排序（从 tags 提取 importance:XX，无则 0）
+    const scored = assets.map(a => {
+      let imp = 0;
+      try {
+        const tags = JSON.parse(a.tags || "[]");
+        const m = (Array.isArray(tags) ? tags : []).find(t => typeof t === "string" && t.startsWith("importance:"));
+        if (m) imp = parseInt(m.split(":")[1], 10) || 0;
+      } catch (e) {
+        const m = String(a.tags || "").match(/importance:(\d+)/);
+        if (m) imp = parseInt(m[1], 10) || 0;
+      }
+      return { a, imp };
+    }).sort((x, y) => y.imp - x.imp);
+
+    scored.forEach(({ a, imp }) => {
       const tr = document.createElement("tr");
       tr.style.cursor = "pointer";
       tr.title = "点击查看详情";
@@ -221,9 +276,15 @@ async function loadAssets() {
         : a.asset_type === "ip" ? "badge ip"
         : a.asset_type === "port" ? "badge port"
         : a.asset_type === "organization" ? "badge org" : "";
+      // 重要性徽章：≥90 核心(红) / ≥70 重要(橙) / ≥50 普通(黄) / 低值(灰)
+      const impCls = imp >= 90 ? "bad" : imp >= 70 ? "warn" : imp >= 50 ? "ok" : "";
+      const impHtml = imp > 0
+        ? `<span class="pill ${impCls}">${imp}</span>`
+        : "—";
       tr.innerHTML =
         `<td>${a.asset_value || "—"}</td>` +
         `<td>${typeBadge ? `<span class="${typeBadge}">${a.asset_type}</span>` : a.asset_type || "—"}</td>` +
+        `<td>${impHtml}</td>` +
         `<td>${a.enterprise || "—"}</td>` +
         `<td>${a.ip || "—"}</td>` +
         `<td>${a.port || "—"}</td>` +

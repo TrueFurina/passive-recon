@@ -36,6 +36,7 @@ class AssetSourceEnum(str, Enum):
     NVD = "nvd"                    # NVD/CVE 漏洞数据库
     CENSYS = "censys"              # Censys 互联网资产测绘
     BINARYEDGE = "binaryedge"      # BinaryEdge 威胁情报
+    DNSDB = "dnsdb"                # DNSDB 被动 DNS
     CUSTOM = "custom"              # 自定义导入
 
 

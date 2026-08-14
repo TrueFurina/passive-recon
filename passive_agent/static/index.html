@@ -60,6 +60,7 @@
       <a onclick="switchPage('assets',this)">🔍 资产浏览</a>
       <a onclick="switchPage('risks',this)">🚨 风险</a>
       <a onclick="switchPage('cves',this)">📌 漏洞</a>
+      <a onclick="switchPage('supply',this)">🔗 供应链</a>
       <span id="health" class="pill ok">● 就绪</span>
     </nav>
   </header>
@@ -191,7 +192,7 @@
           <span id="assetCount" style="color:var(--sub);font-size:12px;"></span>
         </div>
         <table id="assetTbl">
-          <thead><tr><th>资产</th><th>类型</th><th>企业</th><th>IP</th><th>端口</th><th>数据源</th></tr></thead>
+          <thead><tr><th>资产</th><th>类型</th><th>重要性</th><th>企业</th><th>IP</th><th>端口</th><th>数据源</th></tr></thead>
           <tbody></tbody>
         </table>
         <div class="pagination" id="assetPagination"></div>
@@ -241,6 +242,24 @@
       <div class="card">
         <table id="cveTbl">
           <thead><tr><th>CVE ID</th><th>CVSS</th><th>影响资产</th><th>企业</th><th>描述</th><th>数据源</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- === 供应链页 === -->
+    <div id="page-supply" class="page">
+      <div class="sec-title">🔗 供应链关系</div>
+      <div class="row">
+        <span style="color:var(--sub);font-size:12px;">通过 IP 反查发现的关联企业资产（`collect --supply-chain` 生成）</span>
+        <button onclick="loadSupply()">刷新</button>
+      </div>
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <span id="supplyCount" style="color:var(--sub);font-size:12px;"></span>
+        </div>
+        <table id="supplyTbl">
+          <thead><tr><th>关联资产</th><th>类型</th><th>重要性</th><th>关联企业</th><th>IP</th><th>数据源</th></tr></thead>
           <tbody></tbody>
         </table>
       </div>

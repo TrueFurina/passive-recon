@@ -171,3 +171,83 @@ def to_csv(report: Dict) -> str:
     for item in report["top_violation_sources"]:
         w.writerow([item["source"], item["count"]])
     return buf.getvalue()
+
+
+def to_pdf(report: Dict, out_path: str) -> str:
+    """报告 → PDF 文件（fpdf2，纯 Python）。
+
+    Args:
+        report: 报告数据字典
+        out_path: PDF 输出路径
+
+    Returns:
+        输出路径
+    """
+    from fpdf import FPDF
+    import os
+
+    pdf = FPDF()
+    pdf.set_auto_page_break(auto=True, margin=15)
+    pdf.add_page()
+
+    # 标题
+    pdf.set_font("helvetica", "B", 16)
+    pdf.cell(0, 10, "Compliance Audit Report", ln=True, align="C")
+    pdf.ln(2)
+    pdf.set_font("helvetica", "", 10)
+    pdf.cell(0, 7, f"Period: {report['start_ts']} ~ {report['end_ts']} ({report['period_days']} days)", ln=True, align="C")
+    pdf.cell(0, 7, f"Scope: {report['enterprise']}", ln=True, align="C")
+    pdf.ln(6)
+
+    # 总览表
+    pdf.set_font("helvetica", "B", 11)
+    pdf.cell(0, 8, "Overview", ln=True)
+    pdf.set_font("helvetica", "", 9)
+    overview = [
+        ("Total events", str(report["total_events"])),
+        ("ALLOW", str(report["allow_count"])),
+        ("BLOCK/FAIL (violations)", str(report["block_count"])),
+        ("SUSPEND", str(report["suspend_count"])),
+        ("Other", str(report["other_count"])),
+        ("Compliance rate", f"{report['compliance_rate']}%"),
+    ]
+    for label, val in overview:
+        pdf.cell(70, 7, label, border=1)
+        pdf.cell(0, 7, val, border=1, ln=True)
+    pdf.ln(4)
+
+    # 违规原因分布
+    if report["reason_distribution"]:
+        pdf.set_font("helvetica", "B", 11)
+        pdf.cell(0, 8, "Violation Reasons", ln=True)
+        pdf.set_font("helvetica", "B", 9)
+        pdf.cell(30, 7, "Code", border=1)
+        pdf.cell(80, 7, "Description", border=1)
+        pdf.cell(20, 7, "Count", border=1, ln=True)
+        pdf.set_font("helvetica", "", 9)
+        for code, info in report["reason_distribution"].items():
+            pdf.cell(30, 7, code, border=1)
+            pdf.cell(80, 7, info["desc"], border=1)
+            pdf.cell(20, 7, str(info["count"]), border=1, ln=True)
+        pdf.ln(4)
+
+    # 违规来源 TOP
+    if report["top_violation_sources"]:
+        pdf.set_font("helvetica", "B", 11)
+        pdf.cell(0, 8, "Top Violation Sources", ln=True)
+        pdf.set_font("helvetica", "B", 9)
+        pdf.cell(80, 7, "Source", border=1)
+        pdf.cell(30, 7, "Count", border=1, ln=True)
+        pdf.set_font("helvetica", "", 9)
+        for item in report["top_violation_sources"]:
+            pdf.cell(80, 7, item["source"], border=1)
+            pdf.cell(30, 7, str(item["count"]), border=1, ln=True)
+
+    if report["total_events"] == 0:
+        pdf.ln(4)
+        pdf.set_font("helvetica", "I", 9)
+        pdf.cell(0, 7, "No audit events in this period.", ln=True)
+
+    os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)
+    pdf.output(out_path)
+    return out_path

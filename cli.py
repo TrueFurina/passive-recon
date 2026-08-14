@@ -882,10 +882,61 @@ def cmd_ask(args) -> None:
     print(result)
 
 
+def cmd_predict_subdomains(args) -> None:
+    """🤖 AI 子域名预测 — 根据已知资产推测可能存在的子域名并验证。"""
+    _ensure()
+    from passive_agent.ai.subdomain_predict import predict_and_verify
+    from passive_agent.ai.domain_infer import infer_domain
+    from passive_agent.storage import db
+
+    target = args.name
+    domain = args.domain or infer_domain(target)
+    print(f"🎯 目标: {target} ({domain})")
+    print(f"🤖 AI 正在预测子域名...")
+
+    # 收集已知子域名（从资产库）
+    known = []
+    try:
+        rows = db.query(
+            "SELECT asset_value FROM t_collect_asset "
+            "WHERE enterprise=? AND asset_type='subdomain' LIMIT 50",
+            (target,),
+        )
+        known = [r["asset_value"] for r in rows]
+    except Exception:
+        pass
+    if known:
+        print(f"   📋 已知子域名 {len(known)} 个，作为 AI 参考")
+
+    results = predict_and_verify(domain, known, count=args.count)
+
+    if results:
+        print(f"\n✅ AI 预测并验证存活 {len(results)} 个子域名:")
+        for r in results:
+            print(f"   • {r['subdomain']} → {r['ip']}")
+        # 落库
+        stored = 0
+        try:
+            for r in results:
+                db.write(
+                    "INSERT OR IGNORE INTO t_collect_asset "
+                    "(enterprise, domain, asset_value, asset_type, source_name, ip, tags) "
+                    "VALUES (?,?,?,?,?,?,?)",
+                    (target, domain, r["subdomain"], "subdomain", "ai-predict",
+                     r["ip"], '["ai-predict"]'),
+                )
+                stored += 1
+        except Exception:
+            pass
+        print(f"\n💾 已落库 {stored} 条预测子域名")
+    else:
+        print("\n❌ 未预测到存活子域名（AI 可能不可用或网络问题）")
+
+
 def cmd_compliance_report(args) -> None:
     """📊 周期合规审计报告（企业版特性）。"""
     _ensure()
-    from passive_agent.audit.report import build_report, to_markdown, to_csv
+    from passive_agent.audit.report import build_report, to_markdown, to_csv, to_pdf
 
     report = build_report(days=args.days, enterprise=args.enterprise or None)
 
@@ -897,6 +948,13 @@ def cmd_compliance_report(args) -> None:
             print(f"✅ 合规报告已导出 (CSV) → {args.output}")
         else:
             print(text)
+    elif args.format == "pdf":
+        out = args.output or "data/compliance_report.pdf"
+        try:
+            to_pdf(report, out)
+            print(f"✅ 合规报告已导出 (PDF) → {out}")
+        except ImportError:
+            print("❌ 未安装 fpdf2，请先: pip install fpdf2")
     else:
         text = to_markdown(report)
         if args.output:
@@ -1075,6 +1133,13 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--limit", type=int, default=20, help="Max results (default: 20)")
     sp.set_defaults(func=cmd_ask)
 
+    # AI subdomain prediction
+    sp = sub.add_parser("predict-subdomains", help="🤖 AI subdomain prediction: infer likely subdomains from known assets")
+    sp.add_argument("name", help="Target name, e.g. 'Tsinghua University' or a domain")
+    sp.add_argument("--domain", default="", help="Main domain (optional, auto-inferred)")
+    sp.add_argument("--count", type=int, default=20, help="Number of subdomains to predict (default: 20)")
+    sp.set_defaults(func=cmd_predict_subdomains)
+
     # CVE lookup
     sp = sub.add_parser("cve", help="📊 Query CVE vulnerability details")
     sp.add_argument("cve_id", help="CVE ID, e.g. CVE-2024-xxxx")
@@ -1084,7 +1149,7 @@ def build_parser() -> argparse.ArgumentParser:
     sp = sub.add_parser("compliance-report", help="📊 Periodic compliance audit report (enterprise)")
     sp.add_argument("--days", type=int, default=7, help="Report period in days (default: 7)")
     sp.add_argument("--enterprise", default="", help="Filter by enterprise (default: all)")
-    sp.add_argument("--format", default="markdown", choices=["markdown", "csv"], help="Output format (default: markdown)")
+    sp.add_argument("--format", default="markdown", choices=["markdown", "csv", "pdf"], help="Output format (default: markdown)")
     sp.add_argument("--output", default="", help="Output file path (default: stdout)")
     sp.set_defaults(func=cmd_compliance_report)
 
