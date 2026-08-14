@@ -166,9 +166,15 @@ if ($existing) {
         $match = $existing | Where-Object { $_.title -like "$prefix *" -and $_.title -ne $m.title }
         if ($match) {
             foreach ($ms in $match) {
-                $fixed = Invoke-GitHub -Method "Patch" -Path "/repos/$REPO/milestones/$($ms.number)" -Body $m
+                # 只传 title/description，不带 due_on（PATCH 场景 due_on 会触发 422）
+                $fixed = Invoke-GitHub -Method "Patch" -Path "/repos/$REPO/milestones/$($ms.number)" -Body @{
+                    title       = $m.title
+                    description = $m.description
+                }
                 if ($fixed) {
                     Write-Host "   ✅ 里程碑已修复: $($ms.title) → $($fixed.title)" -ForegroundColor Green
+                } else {
+                    Write-Host "   ⚠️  里程碑 #$($ms.number) 修复失败，需手动: https://github.com/TrueFurina/passive-recon/milestones/$($ms.number)/edit" -ForegroundColor Yellow
                 }
             }
         }
@@ -178,7 +184,7 @@ if ($existing) {
 # ------------------------------------------------------------
 # 3. 检查 awesome-osint PR #1052 状态
 # ------------------------------------------------------------
-Write-Host "[3/4] 检查 awesome-osint PR #1052 ..." -ForegroundColor Green
+Write-Host "[3/4] 检查 awesome-osint PR ..." -ForegroundColor Green
 $pr = Invoke-GitHub -Method "Get" -Path "/repos/jivoi/awesome-osint/pulls/1052"
 if ($pr) {
     Write-Host "   📌 PR #1052: $($pr.title)" -ForegroundColor Green
@@ -186,14 +192,50 @@ if ($pr) {
     if ($pr.merged) {
         Write-Host "      ✅ 已合并！Passive Recon 已收录 awesome-osint" -ForegroundColor Green
     } elseif ($pr.state -eq "closed") {
-        # 被关闭但未合并：尝试重新打开（作者可重开自己的 PR）
+        # 被关闭但未合并：先尝试重开；维护者关闭的 PR 作者无法重开（422）→ 创建新 PR
         Write-Host "      ⏳ 未合并且已关闭，尝试重新打开 ..." -ForegroundColor Yellow
         $reopen = Invoke-GitHub -Method "Patch" -Path "/repos/jivoi/awesome-osint/pulls/1052" -Body @{ state = "open" }
         if ($reopen -and $reopen.state -eq "open") {
             Write-Host "      ✅ 已重新打开: $($reopen.html_url)" -ForegroundColor Green
         } else {
-            Write-Host "      ⚠️  重新打开失败（可能需要手动）。" -ForegroundColor Yellow
-            Write-Host "        手动打开: https://github.com/jivoi/awesome-osint/pull/1052" -ForegroundColor Yellow
+            Write-Host "      ⚠️  重新打开失败（维护者关闭的 PR 作者无法重开），尝试创建新 PR ..." -ForegroundColor Yellow
+            $newPr = Invoke-GitHub -Method "Post" -Path "/repos/jivoi/awesome-osint/pulls" -Body @{
+                title = "Add Passive Recon — zero-touch OSINT/EASM/CTEM platform (20 data sources)"
+                head  = "TrueFurina:master"
+                base  = "master"
+                body  = @'
+## Description
+
+Added [Passive Recon](https://github.com/TrueFurina/passive-recon) to the Other Tools section.
+
+## About
+
+Passive Recon is a purely passive OSINT/EASM/CTEM platform with **20 data sources** for external asset discovery, subdomain enumeration, and risk detection. One command, any target — zero probes sent.
+
+- **20 passive data sources**: crt.sh, HackerTarget, OTX, URLScan, Wayback Machine, DNSDumpster, CommonCrawl, GitHub, NVD, OSV, Hunter, FOFA, SecurityTrails, Shodan, VirusTotal, ZoomEye, Qichacha, Censys, BinaryEdge
+- **Zero-touch**: Never connects to target systems
+- **AI-powered**: domain inference, risk scoring, asset classification, chat query
+- **Built-in compliance guardrail**: Every outbound call checked (fail-closed)
+- **Enterprise**: RBAC, compliance reports, Docker deployment
+
+```bash
+pip install -r requirements.txt
+python cli.py collect "Tsinghua University"
+```
+
+## Why Passive Recon?
+
+Existing tools like SpiderFoot and ReconFTW are great but often require heavy setup or active scanning. Passive Recon focuses on being trivially deployable (pure Python, pip install) and purely passive — ideal for compliance-constrained environments.
+'@
+            }
+            if ($newPr) {
+                Write-Host "      ✅ 新 PR 已创建: $($newPr.html_url)" -ForegroundColor Green
+            } else {
+                Write-Host "      ⚠️  创建新 PR 失败。手动操作:" -ForegroundColor Yellow
+                Write-Host "        1. https://github.com/TrueFurina/awesome-osint/pull/new/master" -ForegroundColor Yellow
+                Write-Host "        2. base: master ← compare: master（fork 分支）" -ForegroundColor Yellow
+                Write-Host "        3. 标题/正文参考 docs/promotion_drafts.md" -ForegroundColor Yellow
+            }
         }
     } else {
         Write-Host "      ⏳ 未合并（state=$($pr.state)）。可在仓库 Discussions 中跟进。" -ForegroundColor Yellow
