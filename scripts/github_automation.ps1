@@ -43,8 +43,11 @@ function Invoke-GitHub {
     $uri = "$API$Path"
     $params = @{ Uri = $uri; Method = $Method; Headers = $HEADERS }
     if ($Body) {
-        $params.Body = ($Body | ConvertTo-Json -Depth 10)
-        $params.ContentType = "application/json"
+        # 关键修复：Body 显式转为 UTF-8 字节，否则 PowerShell 5.1 用 ASCII
+        # 编码发送 JSON，中文（如里程碑标题）会变成 ????
+        $json = $Body | ConvertTo-Json -Depth 10
+        $params.Body = [System.Text.Encoding]::UTF8.GetBytes($json)
+        $params.ContentType = "application/json; charset=utf-8"
     }
     try {
         $resp = Invoke-RestMethod @params
@@ -153,6 +156,25 @@ foreach ($m in $milestones) {
     }
 }
 
+# 修复乱码里程碑（旧脚本 ASCII 编码导致中文变 ????）
+Write-Host "   🔧 检查并修复乱码里程碑 ..." -ForegroundColor Green
+$existing = Invoke-GitHub -Method "Get" -Path "/repos/$REPO/milestones?state=all&per_page=50"
+if ($existing) {
+    foreach ($m in $milestones) {
+        # 按标题前缀匹配（M3 / M4），标题不一致则 PATCH 修正
+        $prefix = ($m.title -split " ")[0]
+        $match = $existing | Where-Object { $_.title -like "$prefix *" -and $_.title -ne $m.title }
+        if ($match) {
+            foreach ($ms in $match) {
+                $fixed = Invoke-GitHub -Method "Patch" -Path "/repos/$REPO/milestones/$($ms.number)" -Body $m
+                if ($fixed) {
+                    Write-Host "   ✅ 里程碑已修复: $($ms.title) → $($fixed.title)" -ForegroundColor Green
+                }
+            }
+        }
+    }
+}
+
 # ------------------------------------------------------------
 # 3. 检查 awesome-osint PR #1052 状态
 # ------------------------------------------------------------
@@ -163,6 +185,16 @@ if ($pr) {
     Write-Host "      状态: $($pr.state) | 已合并: $($pr.merged)" -ForegroundColor Green
     if ($pr.merged) {
         Write-Host "      ✅ 已合并！Passive Recon 已收录 awesome-osint" -ForegroundColor Green
+    } elseif ($pr.state -eq "closed") {
+        # 被关闭但未合并：尝试重新打开（作者可重开自己的 PR）
+        Write-Host "      ⏳ 未合并且已关闭，尝试重新打开 ..." -ForegroundColor Yellow
+        $reopen = Invoke-GitHub -Method "Patch" -Path "/repos/jivoi/awesome-osint/pulls/1052" -Body @{ state = "open" }
+        if ($reopen -and $reopen.state -eq "open") {
+            Write-Host "      ✅ 已重新打开: $($reopen.html_url)" -ForegroundColor Green
+        } else {
+            Write-Host "      ⚠️  重新打开失败（可能需要手动）。" -ForegroundColor Yellow
+            Write-Host "        手动打开: https://github.com/jivoi/awesome-osint/pull/1052" -ForegroundColor Yellow
+        }
     } else {
         Write-Host "      ⏳ 未合并（state=$($pr.state)）。可在仓库 Discussions 中跟进。" -ForegroundColor Yellow
     }
@@ -209,8 +241,12 @@ $disc = Invoke-GitHub -Method "Post" -Path "/repos/$REPO/discussions" -Body @{
 if ($disc) {
     Write-Host "   ✅ Discussions 公告已创建: $($disc.html_url)" -ForegroundColor Green
 } else {
-    Write-Host "   ⚠️  Discussions API 不可用（可能未启用 Discussions 或需网页初始化）" -ForegroundColor Yellow
-    Write-Host "      手动创建: https://github.com/TrueFurina/passive-recon/discussions" -ForegroundColor Yellow
+    Write-Host "   ⚠️  Discussions API 404：功能未启用，需网页初始化。" -ForegroundColor Yellow
+    Write-Host "      1. 打开 https://github.com/TrueFurina/passive-recon/settings" -ForegroundColor Yellow
+    Write-Host "      2. 左侧点击 Discussions" -ForegroundColor Yellow
+    Write-Host "      3. 点击 'Set up discussions' 启用" -ForegroundColor Yellow
+    Write-Host "      4. 启用后重新运行本脚本即可自动创建公告" -ForegroundColor Yellow
+    Write-Host "      或手动发布: https://github.com/TrueFurina/passive-recon/discussions" -ForegroundColor Yellow
 }
 
 Write-Host ""
