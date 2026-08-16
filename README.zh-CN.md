@@ -6,6 +6,8 @@
 
 [![CI](https://github.com/TrueFurina/passive-recon/actions/workflows/ci.yml/badge.svg)](https://github.com/TrueFurina/passive-recon/actions/workflows/ci.yml)
 
+> **状态**: 积极维护中 —— 数据源每日更新，每次提交自动运行 CI。
+
 ---
 
 ## 项目定位
