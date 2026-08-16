@@ -274,6 +274,7 @@ python scripts/guard_passive.py
 2. **Zero Logs** — Never touch the target's logging systems
 3. **Compliant Egress** — Every outbound call must pass `compliance_client.check()`
 4. **Fail-Closed** — If in doubt, deny; if misconfigured, deny; if no token, deny
+5. **Auditable** — Every operation writes to the audit log (`data/audit.jsonl`) for compliance review
 
 ---
 
