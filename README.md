@@ -249,6 +249,8 @@ After running `python cli.py collect "Tsinghua University"`:
 └── data/                           ← Runtime data (gitignored)
 ```
 
+> Full design docs live in [`docs/`](docs/) — system design, sequence diagrams, and class diagrams.
+
 ---
 
 ## 🧪 Running Tests
