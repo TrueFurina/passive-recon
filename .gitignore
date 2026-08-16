@@ -57,3 +57,9 @@ per/
 
 # ===== 根目录测试产物（禁止入库）=====
 report_test.xlsx
+
+# Results output
+results/
+output/
+*.log
+!requirements.txt
