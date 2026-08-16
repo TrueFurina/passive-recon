@@ -262,6 +262,8 @@ pytest tests/test_passive_egress.py -v
 python scripts/guard_passive.py
 ```
 
+> The passive egress guard and static guard run automatically in CI (`.github/workflows/ci.yml`) and block any active-scan code from merging.
+
 ---
 
 ## 🛡️ Core Principles
