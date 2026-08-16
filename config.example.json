@@ -4,6 +4,21 @@
     "qichacha": {
       "app_key": "",
       "secret_key": ""
+    },
+    "fofa": {
+      "email": "",
+      "key": ""
+    },
+    "securitytrails": {
+      "api_key": ""
     }
+  },
+  "OUTPUT": {
+    "dir": "results",
+    "format": "json"
+  },
+  "COMPLIANCE": {
+    "fail_closed": true,
+    "max_concurrent_requests": 10
   }
 }
