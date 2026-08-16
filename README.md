@@ -52,6 +52,7 @@ The system auto-infers the target domain, runs all 15 sources in parallel, and p
 | **🤖 AI Chat Query** | `python cli.py ask "What VPNs does Tsinghua have?"` — natural language asset search |
 | **📌 CVE Vulnerability Intel** | Auto-correlate discovered assets with NVD/OSV for known vulnerabilities |
 | **📊 CVE Lookup** | `python cli.py cve CVE-2024-xxxx` — query CVE details from NVD + OSV |
+| **🔁 Change Tracking** | Scheduled runs compare snapshots and flag new/changed assets |
 
 ---
 
