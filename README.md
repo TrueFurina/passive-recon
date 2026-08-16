@@ -11,6 +11,8 @@
 
 [🇨🇳 中文版](./README.zh-CN.md)
 
+> **Status**: Actively maintained — daily data source updates and CI runs on every commit.
+
 ---
 
 ## 🌟 What is Passive Recon?
