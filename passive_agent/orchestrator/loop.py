@@ -65,6 +65,7 @@ def run_company(enterprise: str, max_depth: Optional[int] = None) -> Dict[str, A
         "enterprise": enterprise,
         "trace_id": trace_id,
         "blocked": False,
+        "status": "running",
         "subjects": 0,
         "verified": 0,
         "suspended": 0,
@@ -75,6 +76,12 @@ def run_company(enterprise: str, max_depth: Optional[int] = None) -> Dict[str, A
         "graph_edges": 0,
         "queued_unsubmitted": 0,
         "approval_blocked": 0,
+        "total_assets": 0,
+        "rounds": 0,
+        "domain_count": 0,
+        "ip_count": 0,
+        "email_count": 0,
+        "sources": [],
     }
 
     # 阶段 0：R1 准入（出站前关隘）
@@ -84,6 +91,7 @@ def run_company(enterprise: str, max_depth: Optional[int] = None) -> Dict[str, A
                 biz_id=enterprise, trace_id=trace_id)
     if not adm.allowed:
         summary["blocked"] = True
+        summary["status"] = "blocked"
         summary["reason"] = adm.reason_code
         _logger.warn(f"R1 准入被拦截 enterprise={enterprise} {adm.reason_code}")
         return summary
@@ -143,6 +151,13 @@ def run_company(enterprise: str, max_depth: Optional[int] = None) -> Dict[str, A
 
         src_cnt = max(len(successful_sources), 1)  # 多源佐证方数 = 实际成功源数
         summary["collected_items"] += len(total_items)
+        # 契约键统计：按资产类型累计 + 收集成功源
+        summary["domain_count"] += sum(1 for it in total_items if it.item_type == "domain")
+        summary["ip_count"] += sum(1 for it in total_items if it.item_type == "ip")
+        summary["email_count"] += sum(1 for it in total_items if it.item_type == "email")
+        for sname in successful_sources:
+            if sname not in summary["sources"]:
+                summary["sources"].append(sname)
 
         # L2 DNS 存活：检查采集结果中是否有域名解析成功
         dns_ok = any(
@@ -290,6 +305,7 @@ def run_company(enterprise: str, max_depth: Optional[int] = None) -> Dict[str, A
     # R12 统计
     summary["graph_nodes"] = asset_graph.node_count(enterprise)
     summary["graph_edges"] = asset_graph.edge_count(enterprise)
+    summary["status"] = "completed"
 
     snapshot.save(enterprise, 999, {"phase": "done"})
     _logger.info(
