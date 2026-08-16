@@ -141,6 +141,8 @@ cp config.example.json config.json
 # Edit config.json with your keys
 ```
 
+> **Zero-config mode**: run `python cli.py serve --demo` to start with mock data — no API keys needed for evaluation.
+
 ### 3. Run Asset Discovery
 ```bash
 # One-shot: any target, auto domain inference
