@@ -28,3 +28,8 @@ fpdf2>=2.7  # optional
 # - 不引入 MySQL/Redis/Neo4j/RabbitMQ（本战役用 SQLite + JSON，详见蓝图 §1.2）。
 # - python-whois 为可选被动源依赖，初赛扩展采集时再加，本战役不强制。
 # - 严禁引入 nmap / 主动扫描类库；主动探测能力在架构层物理不可达。
+
+# ===== 测试 / 质量（dev 依赖） =====
+pytest>=8.0
+pytest-asyncio>=0.23
+gitleaks>=8.18
