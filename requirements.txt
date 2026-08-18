@@ -30,6 +30,5 @@ fpdf2>=2.7  # optional
 # - 严禁引入 nmap / 主动扫描类库；主动探测能力在架构层物理不可达。
 
 # ===== 测试 / 质量（dev 依赖） =====
-pytest>=8.0
 pytest-asyncio>=0.23
-gitleaks>=8.18
+# 注意：gitleaks 不是 PyPI 包，由 CI 的 gitleaks/gitleaks-action@v2 提供，严禁写进 requirements.txt
