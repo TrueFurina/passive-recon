@@ -308,3 +308,9 @@ This project is source-available and all rights are reserved by the author. The 
 
 **本仓库为「源码可查、权利保留」项目（source-available / all-rights-reserved）。代码仅供查看与评估，未授权任何复制、再分发、修改、商用或衍生创作。擅自借用代码存在法律风险；如有需要请先联系作者获取明确书面许可。**
 
+---
+
+## 🙏 Acknowledgments
+
+Built with gratitude to the open-source OSINT community and the data source providers that make passive reconnaissance possible.
+
