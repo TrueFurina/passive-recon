@@ -21,6 +21,7 @@ pip install -r requirements.txt
 - Use conventional commits: `feat:`, `fix:`, `docs:`, `chore:`, `test:`
 - Keep each commit focused on a single intent
 - Reference issues where applicable
+- Avoid committing secrets — run `gitleaks detect` before pushing (CI will block leaks)
 
 ## Pull Request Checklist
 
