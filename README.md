@@ -116,6 +116,28 @@ python cli.py collect "target" --no-ai
 
 ---
 
+## 🐳 Docker Deployment (optional)
+
+Prefer running without installing dependencies? The repo ships a
+multi-stage `Dockerfile` and a `docker-compose.yml`:
+
+```bash
+# 1. Build & start (port 8000)
+docker compose up -d
+
+# 2. Pass API keys via environment (never baked into the image)
+export PASSIVE_API_KEYS='{"hunter":["key1","key2"]}'
+docker compose up -d
+
+# 3. Check logs / stop
+docker compose logs -f
+docker compose down
+```
+
+Web UI & API: http://localhost:8000  — data persists in the `recon-data`
+volume. Health check: `http://localhost:8000/api/v1/health`.
+
+---
 ## 🚀 Quick Start
 
 ### 1. Install Dependencies
